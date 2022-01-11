@@ -1,6 +1,7 @@
 # Python-Standard librairies
 from timeit import default_timer as timer
 import random as python_random
+import math
 
 # External librairies
 import tensorflow as tf
@@ -9,6 +10,7 @@ import pandas as pd
 import keras
 import matplotlib.pyplot as plt
 from pathlib import Path
+
 
 class TimingCallback(tf.keras.callbacks.Callback):
     def __init__(self, logs={}):
@@ -180,3 +182,33 @@ def save_perf_and_plot(fig, predictions: np.ndarray, test_mos: np.ndarray, datab
     pathname = str(database_dir / "perfs" / name)
     np.savetxt(pathname + ".csv", concat_test_result, delimiter=",")
     fig.savefig(pathname)
+
+
+def create_base_permut_and_split(originals: np.ndarray, test_percent: int = 0.2, verbose=False):
+    """originals are the names of the src_imgs in a list"""
+
+    permut = np.random.permutation(len(originals))
+    originals_permuted = originals[permut]
+    split_point = math.ceil(len(originals_permuted) * test_percent)
+    originals_test, originals_train = np.split(originals_permuted, [split_point])
+
+    if verbose:
+        print(f"Liste des originaux avant shuffle : \n {originals}")
+        print(f"Liste des originaux après shuffle : \n {originals_permuted}")
+        print(f"Liste des originaux après split point de 20 % min en test : \n {originals_test} ; {originals_train}")
+
+    return permut, originals_permuted
+
+
+def split_test_and_train(nparray_to_split: np.ndarray, nb_distorsions: int, test_percent: float = 0.2, verbose=False):
+    nb_originals_src = nparray_to_split.shape[0] / nb_distorsions
+    split_point = math.ceil(nb_originals_src * test_percent)
+    arr_test, arr_train = np.split(nparray_to_split, [split_point * nb_distorsions], axis=0)
+
+    if verbose:
+        print(f"Array to split ({nparray_to_split.size}) : \n {nparray_to_split.flatten()}")
+        print(f"Array to split after taking {test_percent * 100} % as Test : ")
+        print(f"Test ({arr_test.shape[0]}/{nparray_to_split.shape[0]}) : {arr_test.flatten()} ; ")
+        print(f"Train ({arr_train.shape[0]}/{nparray_to_split.shape[0]}) : {arr_train.flatten()}")
+
+    return arr_test, arr_train

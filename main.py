@@ -31,12 +31,11 @@ print(tf.__version__)
 POSSIBLE_PREPROCESSES_IMG = ['SCALE_0_1', 'CENTERING', 'STANDARD_SIGMA']
 PREPROCESS_IMG = 'STANDARD_SIGMA'
 CSV_SHEET_DATABASE = 'CSIQ_DMOS_allAWGN.csv'
-
-PREPROCESS_ALREADY_APPLIED = False
-
 ROOT_DATABASE = Path("./database")  # includes src_imgs/, dst_imgs/ et CSIQ_DMOS.csv
-
+SAVE_TRAINING = True
+TEST_BASE_PERCENTAGE = 0.2
 apply_seed(seed=111)
+PREPROCESS_ALREADY_APPLIED = False
 
 # Image read and imageset
 
@@ -53,56 +52,41 @@ print(f"Nb distorsions différentes : {nb_distor}")
 
 # Checking imgs
 
-plot_one_img(nparray_img, 0)
-
 plot_multiple_img(nparray_img)
 
 # Preprocessing images (applying [0, 1] scale to img, centering img values, standardizing, etc.)
 
 nparray_img_processed = preprocessing_images(nparray_img, PREPROCESS_IMG)
 print(f"Valeur min des images : {nparray_img_processed.min()}, valeur max des images : {nparray_img_processed.max()}")
-plot_multiple_img(nparray_img_processed)
 
 # Shuffle and splitting uniques originals (imgs names without distorsions)
 
-permut_originaux = np.random.permutation(len(originaux_names))
-originaux_names_permuted = originaux_names[permut_originaux]
-split_point = math.ceil(len(originaux_names_permuted) * 0.2)
-originaux_test, originaux_train = np.split(originaux_names_permuted, [split_point])
-
-print(f"Liste des originaux avant shuffle : \n {originaux_names}")
-print(f"Liste des originaux après shuffle : \n {originaux_names_permuted}")
-print(f"Liste des originaux après split point de 20 % min en test : \n {originaux_test} ; {originaux_train}")
+permut_originaux, originaux_names_permuted = create_base_permut_and_split(originaux_names)
 
 # Shuffle et séparations des scores associés aux images traitées
 
 permutlabels = convert_permutoriginaux_to_permutlabels(permut_originaux, nb_distor)
-nparray_label_permuted = nparray_label[permutlabels, :, :, :]
-labels_test, labels_train = np.split(nparray_label_permuted, [split_point * nb_distor], axis=0)
+nparray_label_permuted = apply_permut_nparray(nparray_label, permutlabels)
+labels_test, labels_train = split_test_and_train(nparray_label_permuted, nb_distor, TEST_BASE_PERCENTAGE)
 
 print(f"Permutation originaux : {permut_originaux},\n permut images ({len(permutlabels)}) : {permutlabels}")
-print(f"Liste des scores ({nparray_label.size}) : \n {nparray_label.flatten()}")
-print(f"Liste des scores après le même shuffle : \n {nparray_label_permuted.flatten()}")
-print(f"Liste des scores après split point de 20 % min en test : \n Test : {labels_test.flatten()} ; \n"
-      "Train : {labels_train.flatten()}")
+
+print(f"Array to split after same shuffle : \n {nparray_label_permuted.flatten()}")
 
 # Shuffle et sépérations des images traitées
 
-nparray_img_permuted = nparray_img_processed[permutlabels, :, :, :]
+nparray_img_permuted = apply_permut_nparray(nparray_img_processed, permutlabels)
 
-plot_multiple_img(nparray_img_processed)
-plot_multiple_img(nparray_img_permuted)
-# plot_one_img(nparray_img_processed, 0)
+if not PREPROCESS_IMG:
+    plot_multiple_img(nparray_img_processed)
+    plot_multiple_img(nparray_img_permuted)
+    # plot_one_img(nparray_img_processed, 0)
 
-img_test, img_train = np.split(nparray_img_processed, [split_point * nb_distor], axis=0)
-
-print("Première ligne d'image = avant shuffle")
-print("Deuxième ligne d'image = après shuffle")
+img_test, img_train = split_test_and_train(nparray_img_processed, nb_distor, TEST_BASE_PERCENTAGE)
 
 print(f"Les {img_test.shape[0]} premières images sont gardées pour le test")
 
 initializer = tf.keras.initializers.he_normal()
-
 
 # Hyper-parameters for the training process
 
@@ -130,19 +114,24 @@ print(f"dimensions of images (train): {train_images.shape}, nb of values : {trai
 iqa_model.compile(optimizer=optimizer, loss='mse', metrics='mae')
 
 # Configure checkpoints to save training
-checkpoint_filepath = str(ROOT_DATABASE / f'checkpoint_AWGN.ckpt')
-model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
-    filepath=checkpoint_filepath,
-    save_weights_only=True,
-    verbose=1,
-    monitor='val_loss',
-    mode='min',
-    save_best_only=True)
+
+if SAVE_TRAINING:
+    checkpoint_filepath = str(ROOT_DATABASE / f'checkpoint_AWGN.ckpt')
+    model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+        filepath=checkpoint_filepath,
+        save_weights_only=True,
+        verbose=1,
+        monitor='val_loss',
+        mode='min',
+        save_best_only=True)
+    fit_callback = [model_checkpoint_callback]
+else:
+    fit_callback = None
 
 # Trains the model for a fixed number of epochs (iterations on the used dataset)
 training_history = iqa_model.fit(x=train_images, y=train_mos, batch_size=batch_size,
                                  epochs=epochs, validation_split=.2, shuffle=True,
-                                 callbacks=[model_checkpoint_callback])
+                                 callbacks=fit_callback)
 
 # plot training history
 
