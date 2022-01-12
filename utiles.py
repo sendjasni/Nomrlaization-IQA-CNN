@@ -23,13 +23,13 @@ class TimingCallback(tf.keras.callbacks.Callback):
         self.logs.append(timer() - self.starttime)
 
 
-def create_callbacks_fun(path, fold_no, Normalization):
-    log_file = path + '/Fold_' + str(fold_no) + '.log'
+def create_callbacks_fun(log_dir: Path, weights_dir: Path, fold_no, Normalization):
+    log_file = log_dir / ('Fold_' + str(fold_no) + '.log')
 
     csv_loger = tf.keras.callbacks.CSVLogger(
         log_file, separator=",", append=False)
 
-    filepath = path + '/weights_' + Normalization + '.hdf5'
+    filepath = weights_dir / ('weights_' + Normalization + '.hdf5')
 
     checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor="val_loss", mode="min",
                                                     save_best_only=True, save_weights_only=True, save_freq='epoch',
@@ -38,6 +38,7 @@ def create_callbacks_fun(path, fold_no, Normalization):
     callbacks = [
         csv_loger,
         train_tile_cb,
+        checkpoint
     ]
 
     return callbacks
@@ -51,12 +52,11 @@ def apply_seed(seed: int):
     tf.random.set_seed(seed)
 
 
-def get_dataset_from_csv(csvfile: str, database_dir: Path):
-    """The csvfile must be the name of a .csv file in database_dir/
-    Images must be in database_dir/dst_imgs/
+def get_dataset_from_csv(csvfilepath: str, database_dir: Path, verbose=False):
+    """Images must be in database_dir/dst_imgs/
     with the name format [photo_name].[distorsion_type].[distorsion_level].png"""
 
-    dataframe = pd.read_csv(database_dir / csvfile)
+    dataframe = pd.read_csv(csvfilepath)
 
     nparray_img = np.empty((0, 512, 512, 3))
     nparray_label = np.empty((0, 1, 1, 1))
@@ -73,6 +73,10 @@ def get_dataset_from_csv(csvfile: str, database_dir: Path):
         quality_score = np.array([row['dmos']])
         nparray_label = np.append(nparray_label, quality_score[np.newaxis, np.newaxis, np.newaxis, ...], axis=0)
 
+    if verbose:
+        print(f"Shape du tensor d'images : {nparray_img.shape}")
+        print(f"shape des labels correspondants : {nparray_label.shape}")
+
     return nparray_img, nparray_label, dataframe
 
 
@@ -86,6 +90,7 @@ def plot_multiple_img(nparray_img: np.ndarray):
     for i in range(15):
         sub = fig.add_subplot(1, 15, i + 1)
         sub.imshow(nparray_img[i, :, :, :].astype(int), interpolation='nearest')
+    plt.show()
 
 
 def preprocessing_images(nparray_img: np.ndarray, preprocessing_type: str):
@@ -107,7 +112,7 @@ def preprocessing_images(nparray_img: np.ndarray, preprocessing_type: str):
     #   nparray_img[i,:,:,:] = img_tmp
 
 
-def convert_permutoriginaux_to_permutlabels(permut_originaux: np.ndarray, nb_distor: int):
+def convert_permutoriginals_to_permutlabels(permut_originaux: np.ndarray, nb_distor: int):
     """A partir d'une permutation pour les classes uniques et du nombre de distorsions que subira chacune
   de ces classes, retourne la permutation équivalente pour toutes les images distordues qui gardera le
   même ordre de classes uniques
@@ -123,7 +128,8 @@ def convert_permutoriginaux_to_permutlabels(permut_originaux: np.ndarray, nb_dis
 
 
 def apply_permut_nparray(nparray: np.ndarray, permut: list):
-    """Applique une permutation déjà générée à un tableau numpy"""
+    """Applique une permutation déjà générée à un tableau numpy sous la forme [elmt_de_train, width, height,
+    canal_couleurs] """
     return nparray[permut, :, :, :]
 
 
@@ -176,7 +182,9 @@ def create_model(input_shape, initializer, filters=(32, 64, 128, 256, 512)):
     return iqa_model
 
 
-def save_perf_and_plot(fig, predictions: np.ndarray, test_mos: np.ndarray, database_dir: Path, name: str = 'default'):
+def save_perf_save_plot(fig, predictions: np.ndarray, test_mos: np.ndarray, database_dir: Path, name: str = 'default'):
+    """Sauvegarde les résultats de prédiction d'un test de réseau entraîné"""
+
     concat_test_result = np.array([predictions.flatten(), test_mos.flatten()])
 
     pathname = str(database_dir / "perfs" / name)
@@ -185,7 +193,7 @@ def save_perf_and_plot(fig, predictions: np.ndarray, test_mos: np.ndarray, datab
 
 
 def create_base_permut_and_split(originals: np.ndarray, test_percent: int = 0.2, verbose=False):
-    """originals are the names of the src_imgs in a list"""
+    """Originals are the names of the src_imgs in a list"""
 
     permut = np.random.permutation(len(originals))
     originals_permuted = originals[permut]
@@ -201,6 +209,7 @@ def create_base_permut_and_split(originals: np.ndarray, test_percent: int = 0.2,
 
 
 def split_test_and_train(nparray_to_split: np.ndarray, nb_distorsions: int, test_percent: float = 0.2, verbose=False):
+    """Splits a ndarray according to the number of distorsions applied to each img"""
     nb_originals_src = nparray_to_split.shape[0] / nb_distorsions
     split_point = math.ceil(nb_originals_src * test_percent)
     arr_test, arr_train = np.split(nparray_to_split, [split_point * nb_distorsions], axis=0)
@@ -212,3 +221,24 @@ def split_test_and_train(nparray_to_split: np.ndarray, nb_distorsions: int, test
         print(f"Train ({arr_train.shape[0]}/{nparray_to_split.shape[0]}) : {arr_train.flatten()}")
 
     return arr_test, arr_train
+
+
+def plot_training_history(training_history):
+    plt.plot(training_history.history['loss'], label='train')
+    plt.plot(training_history.history['val_loss'], label='val')
+    plt.legend()
+    plt.show()
+
+
+def plot_test_prediction(test_mos, predictions, name=None, saveplot=False, database_dir=Path("database/")):
+    plt.scatter(test_mos, predictions)
+    plt.xlabel("MOS")
+    plt.ylabel("Predicted MOS")
+    fig = plt.gcf()  # Keep the figure even after show() to save it later
+
+    if name:
+        plt.title(name)
+
+    plt.show()
+    if saveplot:
+        save_perf_save_plot(fig, predictions, test_mos, database_dir)
