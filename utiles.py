@@ -93,14 +93,6 @@ def plot_multiple_img(nparray_img: np.ndarray):
     plt.show()
 
 
-def plot_one_vector_img(nparray_img: np.ndarray, i_img: int):
-    pass
-
-
-def plot_multiple_vector_img(nparray_img: np.ndarray):
-    pass
-
-
 def preprocessing_images(nparray_img: np.ndarray, preprocessing_type: str):
     """s'occupe du pré-traitement d'image avant entrainement"""
 
@@ -125,9 +117,9 @@ def convert_permutoriginals_to_permutlabels(permut_originaux: np.ndarray, nb_dis
     """A partir d'une permutation pour les classes uniques et du nombre de distorsions que subira chacune
   de ces classes, retourne la permutation équivalente pour toutes les images distordues qui gardera le
   même ordre de classes uniques
-  >>>permutlabels = convert_permutoriginaux_to_permutlabels(np.array([1, 2, 0]), 3)
-  >>>labels = np.array([1,1,1, 2,2,2, 3,3,3])
-  >>>print(labels[permutlabels])"""
+  >>> permutlabels = convert_permutoriginals_to_permutlabels(np.array([1, 2, 0]), 3)
+  >>> labels = np.array([1,1,1, 2,2,2, 3,3,3])
+  >>> assert((labels[permutlabels] == np.array([2,2,2, 3,3,3, 1,1,1])).all())"""
 
     permutation_tmp = []
     for elmt in permut_originaux:

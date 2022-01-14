@@ -104,10 +104,11 @@ class Normalization():
     @staticmethod
     def local_contrast_norm(dataset_X: np.ndarray, mean_scalar=1.0) -> np.ndarray:
         """
-        >>> img = misc.face()
-        >>> img1 = img[np.newaxis, :, :, :]
+        >>> img = misc.ascent()
+        >>> img1 = img[np.newaxis, :, :, np.newaxis]
         >>> res = Normalization.local_contrast_norm(img1)
         >>> a = plt.imshow(res[0, :, :, :])# - res.min()/(res.max()-res.min()))
+        >>> c = plt.colorbar()
         >>> plt.show()
 
         """
