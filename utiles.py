@@ -93,18 +93,27 @@ def plot_multiple_img(nparray_img: np.ndarray):
     plt.show()
 
 
+def plot_one_vector_img(nparray_img: np.ndarray, i_img: int):
+    pass
+
+
+def plot_multiple_vector_img(nparray_img: np.ndarray):
+    pass
+
+
 def preprocessing_images(nparray_img: np.ndarray, preprocessing_type: str):
     """s'occupe du pré-traitement d'image avant entrainement"""
 
     if preprocessing_type == 'SCALE_0_1':  # On parle de scale [0,255]->[0,1] ou que min de chaque img=0 et max=1 (normalisation) ?
         nparray_img = nparray_img / 255.0
     elif preprocessing_type == 'CENTERING':
-        mean = np.mean(nparray_img, axis=None)  # axis:None = Moyenne sur le tableau après .flatten()
-        nparray_img = nparray_img - mean
+        perpixel_mean = np.mean(nparray_img, axis=0)  # axis:None = Moyenne sur le tableau après .flatten()
+        print("perpixelmeanshape", perpixel_mean.shape)
+        nparray_img = nparray_img - perpixel_mean
     elif preprocessing_type == 'STANDARD_SIGMA':
-        mean = np.mean(nparray_img, axis=None)
+        perpixel_mean = np.mean(nparray_img, axis=None)
         sigma = np.std(nparray_img, axis=None)
-        nparray_img = (nparray_img - mean) / sigma
+        nparray_img = (nparray_img - perpixel_mean) / sigma
     return nparray_img
     # for i in range(nb_images):
     #   img_tmp = nparray_img[i,:,:,:]

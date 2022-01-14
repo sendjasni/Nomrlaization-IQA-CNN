@@ -1,5 +1,6 @@
 # Internal files
 from utiles import *
+from normalization import Normalization
 
 # Python-Standard librairies
 import os
@@ -24,7 +25,7 @@ DATAFILE_NAME = 'CSIQ_DMOS_allAWGN.csv'
 
 # User options :
 POSSIBLE_PREPROCESSES_IMG = ['SCALE_0_1', 'CENTERING', 'STANDARD_SIGMA']
-PREPROCESS_IMG = 'STANDARD_SIGMA'
+PREPROCESS_IMG = ''
 # NO_TRAINING = False  # just recover older training and test it
 FIX_RANDOM = True
 SAVE_TRAINING = True
@@ -35,7 +36,7 @@ VALID_BASE_PERCENTAGE = 0.2  # Pourcentage de valid/train (la base de validation
 
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
 print("Number GPUs avalable: ", len(physical_devices))
-# tf.config.experimental.set_memory_growth(physical_devices[0], True)
+tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 os.environ['PYTHONHASHSEED'] = '0'
 os.environ['TF_DETERMINISTIC_OPS'] = '1'
@@ -61,6 +62,7 @@ plot_multiple_img(nparray_img)
 # Preprocessing images (applying [0, 1] scale to img, centering img values, standardizing, etc.)
 
 nparray_img_processed = preprocessing_images(nparray_img, PREPROCESS_IMG)
+Normalization.ZCA_whiten(nparray_img)
 print(f"Valeur min des images : {nparray_img_processed.min()}, valeur max des images : {nparray_img_processed.max()}")
 
 # Shuffle and splitting uniques originals (imgs names without distorsions)
