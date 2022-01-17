@@ -4,6 +4,7 @@ import random as python_random
 import math
 
 # External librairies
+from PIL import Image
 import tensorflow as tf
 import numpy as np
 import pandas as pd
@@ -42,6 +43,35 @@ def create_callbacks_fun(log_dir: Path, weights_dir: Path, fold_no, Normalizatio
     ]
 
     return callbacks
+
+
+def get_quick_dataset(inRGB=False) -> np.ndarray:
+    """
+    Retourne un dataset pour tester rapidement des algorithmes de normalisation
+    :return: dataset (imgs=4, w=512, h=512, colors=3)
+    """
+    if inRGB:
+        i1 = np.asarray(Image.open('database/src_imgs/foxy.png'))
+        i2 = np.asarray(Image.open('database/src_imgs/aerial_city.png'))
+        i3 = np.asarray(Image.open('database/src_imgs/monument.png'))
+        i4 = np.asarray(Image.open('database/src_imgs/lake.png'))
+        dataset = np.zeros((4, 512, 512, 3))
+        dataset[0, :, :, :] = i1
+        dataset[1, :, :, :] = i2
+        dataset[2, :, :, :] = i3
+        dataset[3, :, :, :] = i4
+    else:
+        i1 = np.asarray(Image.open('database/src_imgs/foxy.png').convert('L'))
+        i2 = np.asarray(Image.open('database/src_imgs/aerial_city.png').convert('L'))
+        i3 = np.asarray(Image.open('database/src_imgs/monument.png').convert('L'))
+        i4 = np.asarray(Image.open('database/src_imgs/lake.png').convert('L'))
+        dataset = np.zeros((4, 512, 512, 1))
+        dataset[0, :, :, 0] = i1
+        dataset[1, :, :, 0] = i2
+        dataset[2, :, :, 0] = i3
+        dataset[3, :, :, 0] = i4
+
+    return dataset
 
 
 def apply_seed(seed: int):
@@ -148,7 +178,7 @@ def regression_block(features, initializer):
     return x
 
 
-def create_model(input_shape, initializer, filters=(32, 64, 128, 256, 512)):
+def create_model(input_shape, initializer, filters=(64, 128, 256, 512)):
     chan_dim = -1
     inputs = tf.keras.layers.Input(shape=input_shape)
 
@@ -212,7 +242,7 @@ def create_base_permut_and_split(originals: np.ndarray, test_percent: int = 0.2,
 def split_test_and_train(nparray_to_split: np.ndarray, nb_distorsions: int, test_percent: float = 0.2, verbose=False):
     """Splits a ndarray according to the number of distorsions applied to each img"""
     nb_originals_src = nparray_to_split.shape[0] / nb_distorsions
-    split_point = math.ceil(nb_originals_src * test_percent)
+    split_point = math.round(nb_originals_src * test_percent)
     arr_test, arr_train = np.split(nparray_to_split, [split_point * nb_distorsions], axis=0)
 
     if verbose:

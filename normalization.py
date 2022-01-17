@@ -4,6 +4,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.ndimage import gaussian_filter
 from scipy import misc, signal
+from skimage import data
+from skimage import exposure
+from utiles import *
+from skimage.color import rgb2gray
 from PIL import Image
 
 """
@@ -12,7 +16,7 @@ This class will be used to gather all the normalization techniques that are fina
 """
 
 
-class Normalization():
+class Normalization:
 
     @staticmethod
     def pixelsScalling(dataset: np.ndarray) -> np.ndarray:
@@ -48,25 +52,41 @@ class Normalization():
         return kernel
 
     @staticmethod
-    def center(dataset: np.ndarray) -> np.ndarray:
-        mean = Normalization.get_per_pixel_mean(dataset)
-        return dataset - mean
+    def center(dataset_X: np.ndarray) -> np.ndarray:
+        """
+        >>> dataset = get_quick_dataset(inRGB=True)
+        >>> res = Normalization.center(dataset)
+        >>> a = plt.imshow(res[3, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
+        >>> plt.show()
+        """
+        mean = Normalization.get_per_pixel_mean(dataset_X)
+        return dataset_X - mean
 
     @staticmethod
-    def standardize(dataset: np.ndarray) -> np.ndarray:
-        """Using per-pixel standard deviation"""
-        return Normalization.center(dataset) / np.std(dataset, axis=0)
+    def standardize(dataset_X: np.ndarray) -> np.ndarray:
+        """Using per-pixel standard deviation
+        >>> dataset = get_quick_dataset(inRGB=True)
+        >>> res = Normalization.standardize(dataset)
+        >>> a = plt.imshow(res[3, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
+        >>> plt.show()
+        """
+        return Normalization.center(dataset_X) / np.std(dataset_X, axis=0)
 
     @staticmethod
     def ZCA_whiten(dataset_X: np.ndarray, epsilon=0.1) -> np.ndarray:
         """
-        >>> asc = misc.ascent()
-        >>> asc = asc[0::16, 0::16]
-        >>> Image.fromarray(asc).show()
-        >>> newasc = asc[np.newaxis, :, :, np.newaxis]
-        >>> dataset = np.append(newasc, newasc.T, axis=0)
+        # >>> asc = misc.ascent()
+        # >>> asc = asc[0::8, 0::8]
+        # >>> Image.fromarray(asc).show()
+        # >>> newasc = asc[np.newaxis, :, :, np.newaxis]
+        # >>> dataset = np.append(newasc, newasc.T, axis=0)
+        # >>> res = Normalization.ZCA_whiten(dataset)
+        # >>> Image.fromarray(res[0, :, :, 0]*255).show()
+
+        >>> dataset = get_quick_dataset(inRGB=True)[:, ::8, ::8, :]
         >>> res = Normalization.ZCA_whiten(dataset)
-        >>> Image.fromarray(res[0, :, :, 0]*255).show()
+        >>> a = plt.imshow(res[3, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
+        >>> plt.show()
         """
         original_shape = dataset_X.shape
         X_0to1 = Normalization.pixelsScalling(dataset_X)
@@ -86,11 +106,10 @@ class Normalization():
     @staticmethod
     def difference_of_gaussian(dataset_X: np.ndarray, sigma1: float = 1, sigma2: float = 2) -> np.ndarray:
         """
-        >>> asc = misc.ascent()
-        >>> Image.fromarray(asc).show()
-        >>> newasc = asc[np.newaxis, :, :, np.newaxis]
-        >>> res = Normalization.difference_of_gaussian(newasc)
-        >>> Image.fromarray(res[0, :, :, 0]).show()
+        >>> dataset = get_quick_dataset(inRGB=False)
+        >>> res = Normalization.difference_of_gaussian(dataset)
+        >>> a = plt.imshow(res[1, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
+        >>> plt.show()
         """
 
         for i in range(dataset_X.shape[0]):
@@ -102,31 +121,105 @@ class Normalization():
         return dataset_X
 
     @staticmethod
-    def local_contrast_norm(dataset_X: np.ndarray, mean_scalar=1.0) -> np.ndarray:
+    def local_contrast_norm(dataset_X: np.ndarray, mean_scalar=1.0, enableRGB=False) -> np.ndarray:
         """
-        >>> img = misc.ascent()
-        >>> img1 = img[np.newaxis, :, :, np.newaxis]
-        >>> res = Normalization.local_contrast_norm(img1)
-        >>> a = plt.imshow(res[0, :, :, :])# - res.min()/(res.max()-res.min()))
-        >>> c = plt.colorbar()
+        >>> dataset = get_quick_dataset(inRGB=False)
+        >>> res = Normalization.local_contrast_norm(dataset)
+        >>> a = plt.imshow(res[3, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
         >>> plt.show()
-
         """
-        ker = Normalization.get_gaussian_kernel(4)
+        ker = Normalization.get_gaussian_kernel(2)
 
         new_X = np.zeros(dataset_X.shape)
 
         for i_img in range(dataset_X.shape[0]):
-            for i_canal in range(dataset_X.shape[3]):
-                X = dataset_X[i_img, :, :, i_canal]
-                if X.ndim != 2:
-                    raise ValueError("Input must be a 2D matrix.")
-                Xh = signal.convolve2d(X, ker, mode='same', boundary='symm')
-                locally_centered = X - Xh
-                locally_sqrt = np.sqrt(signal.convolve2d(np.power(locally_centered, 2.0),
-                                                         ker, mode='same', boundary='symm'))
-                thresh = np.exp(np.log(locally_sqrt + np.power(2.0, -5)).mean(axis=-1))
-                locally_sqrt = locally_sqrt * np.greater(locally_sqrt - thresh.reshape(-1, 1), 0)
-                locally_sqrt += 1.0 * np.equal(locally_sqrt, 0.0)
-                new_X[i_img, :, :, i_canal] = locally_centered / locally_sqrt
+            # for i_canal in range(dataset_X.shape[3])
+            X = dataset_X[i_img, :, :, 0]
+            if X.ndim != 2:
+                raise ValueError("Input must be a 2D matrix.")
+            Xh = signal.convolve2d(X, ker, mode='same', boundary='symm')
+            locally_centered = X - Xh
+            locally_sqrt = np.sqrt(signal.convolve2d(np.power(locally_centered, 2.0),
+                                                     ker, mode='same', boundary='symm'))
+            thresh = np.exp(np.log(locally_sqrt + np.power(2.0, -5)).mean(axis=-1))
+            locally_sqrt = locally_sqrt * np.greater(locally_sqrt - thresh.reshape(-1, 1), 0)
+            locally_sqrt += 1.0 * np.equal(locally_sqrt, 0.0)
+            new_X[i_img, :, :, :] = locally_centered / locally_sqrt
+        return new_X
+
+    @staticmethod
+    def histogram_equalization(dataset_X: np.ndarray, enableRGB=False) -> np.ndarray:
+        """
+        >>> dataset = get_quick_dataset(inRGB=False)
+        >>> a = plt.imshow(dataset[3, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
+        >>> plt.show()
+        >>> res = Normalization.histogram_equalization(dataset)
+        >>> a = plt.imshow(res[3, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
+        >>> plt.show()
+        """
+        new_X = np.zeros(dataset_X.shape)
+
+        for i_img in range(dataset_X.shape[0]):
+            img = dataset_X[i_img, :, :, 0]
+            new_X[i_img, :, :, 0] = exposure.equalize_hist(img)
+
+        return new_X
+
+    @staticmethod
+    def CLA_hist_equalization(dataset_X: np.ndarray, enableRGB=False) -> np.ndarray:
+        """
+        >>> dataset = get_quick_dataset(inRGB=False)
+        >>> a = plt.imshow(dataset[3, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
+        >>> plt.show()
+        >>> res = Normalization.CLA_hist_equalization(dataset)
+        >>> a = plt.imshow(res[3, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
+        >>> plt.show()
+        """
+        new_X = np.zeros(dataset_X.shape)
+
+        for i_img in range(dataset_X.shape[0]):
+            img = dataset_X[i_img, :, :, 0].astype(np.uint8)
+            new_X[i_img, :, :, 0] = exposure.equalize_adapthist(img, clip_limit=0.03)
+
+        return new_X
+
+    # @staticmethod
+    # def local_response_normalization(dataset_X: np.ndarray) -> np.ndarray:
+    #     """
+    #     To be precise, this is the inter-channel LRN.
+    #     There is another LRN explained in paper which is the intra-channel LRN, which only needs one image
+    #     """
+    #     tf.nn.local_response_normalization(
+    # input, depth_radius=5, bias=1, alpha=1, beta=0.5, name=None
+    #     )
+    #
+
+    @staticmethod
+    def intra_channel_local_response_normalization(dataset_X: np.ndarray, enableRGB=False, halfsize=2, bias=1,
+                                                   alpha=0.0001, beta=0.5) -> np.ndarray:
+        """
+        Intra channel local response normalization
+        :param dataset_X:
+        :param enableRGB:
+        :param halfsize:
+        :param bias: added to avoid any singularities (division by zero)
+        :param alpha: normalization constant
+        :param beta: contrasting constant
+        >>> dataset = get_quick_dataset(inRGB=False)
+        >>> res = Normalization.intra_channel_local_response_normalization(dataset)
+        >>> a = plt.imshow(res[3, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
+        >>> plt.show()
+        """
+        new_X = np.zeros(dataset_X.shape)
+
+        probs = [1 for z in range(-halfsize, halfsize + 1)]
+        sum_kernel = np.outer(probs, probs)
+
+        for i_img in range(dataset_X.shape[0]):
+            img = dataset_X[i_img, :, :, 0].astype(np.uint8)
+
+            imgsquare = img ** 2
+
+            new_X[i_img, :, :, 0] = 1 / (bias + (alpha * signal.convolve2d(imgsquare, sum_kernel, mode='same', boundary='symm')) ** beta)
+
         return new_X

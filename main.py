@@ -99,7 +99,7 @@ input_shape = (512, 512, 3)  # input shape of the model depending on the shape o
 # You need to get this from one of the images. It is preferable to start with a shape of (256, 256, C),
 # C is the number of channels (If RGB then C=3, else C=1)
 batch_size = 16  # mini-batch size
-epochs = 2  # number of epochs.
+epochs = 100  # number of epochs.
 optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3, decay=1e-4 / epochs)  # optimizer for the model's training
 
 # Creating the CNN model
