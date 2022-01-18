@@ -11,18 +11,20 @@ DATAFILE_NAME = 'CSIQ_DMOS_allAWGN.csv'
 
 # User options :
 
-POSSIBLE_PREPROCESSES_IMG = ['SCALE_0_1', 'CENTERING', 'STANDARD_SIGMA']
-PREPROCESS_IMG = ''
+POSSIBLE_PREPROCESSES_IMG = ['scale_0_1', 'centering', 'standardization', 'LCN', 'LRN', 'histogram eq', 'CLA hist eq', 'ZCA whiten']
+PREPROCESS_IMG = 'CLA hist eq'
 # NO_TRAINING = False  # just recover older training and test it
 FIX_RANDOM = True
 SAVE_TRAINING = True
 ENABLE_PATCH_DATA_AUGMENTATION = True
+DATA_AUGMENT_FACTOR = 2  # if 2 => one img divided by 2 in height and by 2 in width (4 patchs)
 TEST_BASE_PERCENTAGE = 0.2  # Pourcentage de test/train (la base de validation sera prélevée dans la base de train)
 VALID_BASE_PERCENTAGE = 0.2  # Pourcentage de valid/train (la base de validation sera prélevée dans la base de train)
 
 # Hyper-parameters for the training process
 
-input_shape = (512, 512, 3)  # input shape of the model depending on the shape of input images, so be carefull.
+input_shape_before_data_augment = (512, 512, 3)  # input shape of the model depending on the shape of input images, so be carefull.
+input_shape = (512//DATA_AUGMENT_FACTOR, 512//DATA_AUGMENT_FACTOR, 3)  # input shape of the model depending on the shape of input images, so be carefull.
 # You need to get this from one of the images. It is preferable to start with a shape of (256, 256, C),
 # C is the number of channels (If RGB then C=3, else C=1)
 batch_size = 16  # mini-batch size

@@ -71,7 +71,7 @@ def get_quick_dataset(inRGB=False) -> np.ndarray:
         dataset[2, :, :, 0] = i3
         dataset[3, :, :, 0] = i4
 
-    return dataset
+    return dataset.astype(int)
 
 
 def apply_seed(seed: int):

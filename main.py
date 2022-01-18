@@ -48,7 +48,7 @@ plot_multiple_img(nparray_img)
 
 # Preprocessing images (applying [0, 1] scale to img, centering img values, standardizing, etc.)
 
-nparray_img_processed = preprocessing_images(nparray_img, PREPROCESS_IMG)
+nparray_img_processed = Normalization.preprocess_images(nparray_img, PREPROCESS_IMG)
 
 print(f"Valeur min des images : {nparray_img_processed.min()}, valeur max des images : {nparray_img_processed.max()}")
 
@@ -64,8 +64,13 @@ permutlabels = Dataset.convert_permutoriginals_to_permutlabels(permut_originals,
 nparray_label_permuted = Dataset.apply_permut_nparray(nparray_label, permutlabels)
 nparray_img_permuted = Dataset.apply_permut_nparray(nparray_img_processed, permutlabels)
 
-test_mos, train_mos = Dataset.split_test_and_train(nparray_label_permuted, nb_distor, TEST_BASE_PERCENTAGE)
-test_images, train_images = Dataset.split_test_and_train(nparray_img_processed, nb_distor, TEST_BASE_PERCENTAGE)
+test_mos_before_augment, train_mos_before_augment = Dataset.split_test_and_train(nparray_label_permuted, nb_distor, TEST_BASE_PERCENTAGE)
+test_images_before_augment, train_images_before_augment = Dataset.split_test_and_train(nparray_img_processed, nb_distor, TEST_BASE_PERCENTAGE)
+
+print(f"Before data_augmentation : trainshape {train_images_before_augment.shape};{train_mos_before_augment.shape}; testshape {test_images_before_augment.shape};{test_mos_before_augment.shape}")
+train_images, train_mos = Dataset.data_augmentation_patching(train_images_before_augment, nb_division=2, labels=train_mos_before_augment)
+test_images, test_mos = Dataset.data_augmentation_patching(test_images_before_augment, nb_division=2, labels=test_mos_before_augment)
+print(f"After data_augmentation : trainshape {train_images.shape};{train_mos.shape}; testshape {test_images.shape};{test_mos.shape}")
 
 print(f"Permutation originals : {permut_originals},\n permut images ({len(permutlabels)}) : {permutlabels}")
 print(f"Array to split after same shuffle : \n {nparray_label_permuted.flatten()}")

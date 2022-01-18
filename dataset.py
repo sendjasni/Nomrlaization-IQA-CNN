@@ -1,3 +1,4 @@
+from utiles import *
 from pathlib import Path
 import pandas as pd
 import numpy as np
@@ -68,12 +69,14 @@ class Dataset:
         if verbose:
             print(f"Liste des originaux avant shuffle : \n {originals}")
             print(f"Liste des originaux après shuffle : \n {originals_permuted}")
-            print(f"Liste des originaux après split point de 20 % min en test : \n {originals_test} ; {originals_train}")
+            print(
+                f"Liste des originaux après split point de 20 % min en test : \n {originals_test} ; {originals_train}")
 
         return permut, originals_permuted
 
     @staticmethod
-    def split_test_and_train(nparray_to_split: np.ndarray, nb_distorsions: int, test_percent: float = 0.2, verbose=False):
+    def split_test_and_train(nparray_to_split: np.ndarray, nb_distorsions: int, test_percent: float = 0.2,
+                             verbose=False):
         """Splits a ndarray according to the number of distorsions applied to each img"""
         nb_originals_src = nparray_to_split.shape[0] / nb_distorsions
         split_point = round(nb_originals_src * test_percent)
@@ -86,3 +89,45 @@ class Dataset:
             print(f"Train ({arr_train.shape[0]}/{nparray_to_split.shape[0]}) : {arr_train.flatten()}")
 
         return arr_test, arr_train
+
+    @staticmethod
+    def data_augmentation_patching(dataset_X: np.ndarray, nb_division: int, labels: np.ndarray = None) -> np.ndarray:
+        """
+        >>> dataset = get_quick_dataset(inRGB=True)
+        >>> dataset = Dataset.data_augmentation_patching(dataset[0:1,:,:,:], nb_division=2)
+        >>> a = plt.imshow(dataset[0, :, :, :]); plt.show()
+        >>> a = plt.imshow(dataset[1, :, :, :]); plt.show()
+        """
+
+        imgs_nb, h, w, c = dataset_X.shape
+        assert h % nb_division == 0, f"{h} rows is not evenly divisible by {nb_division}"
+        assert w % nb_division == 0, f"{w} cols is not evenly divisible by {nb_division}"
+
+        nb_duplicate = nb_division * nb_division
+        print(f"[DATA AUGMENT] Processing to get x{nb_duplicate} data by tiling the images...")
+
+        patch_shape = (dataset_X.shape[1] // nb_division, dataset_X.shape[2] // nb_division)
+        # new_X = (dataset_X.reshape(h // nb_division, nb_division, -1, nb_division)
+        #          .swapaxes(1, 2)
+        #          .reshape(-1, nb_division, nb_division))
+
+        new_X = np.zeros((0, patch_shape[0], patch_shape[1], dataset_X.shape[3])).astype(int)
+
+        for i_img in range(dataset_X.shape[0]):
+            for x in range(0, dataset_X.shape[1], patch_shape[0]):  # pas certain de si c'est shape[1] ou shape[2]
+                for y in range(0, dataset_X.shape[2], patch_shape[1]):
+                    new_patch = dataset_X[i_img, y:y + patch_shape[0], x:x + patch_shape[1], :]
+                    new_X = np.append(new_X, new_patch[np.newaxis, :, :, :], axis=0)
+
+        print(f"[DATA AUGMENT] Finished.")
+        if labels.any():
+            labels = np.repeat(labels.flatten(), nb_duplicate)[:, np.newaxis, np.newaxis, np.newaxis]
+            return new_X, labels
+
+        return new_X
+
+# from dataset import Dataset
+# from utiles import *
+# import matplotlib.pyplot as plt
+# datasetoriginal = get_quick_dataset(inRGB=True)
+# dataset = Dataset.data_augmentation_patching(datasetoriginal[0:1,:,:,:], nb_division=2)

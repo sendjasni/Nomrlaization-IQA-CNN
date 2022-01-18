@@ -19,6 +19,29 @@ This class will be used to gather all the normalization techniques that are fina
 class Normalization:
 
     @staticmethod
+    def preprocess_images(dataset_X: np.ndarray, normalization_type: str) -> np.ndarray:
+
+        if normalization_type == 'scale_0_1':
+            return Normalization.pixelsScalling(dataset_X)
+        elif normalization_type == 'centering':
+            return Normalization.center(dataset_X)
+        elif normalization_type == 'standardization':
+            return Normalization.standardize(dataset_X)
+        elif normalization_type == 'LCN':
+            return Normalization.local_contrast_norm(dataset_X)
+        elif normalization_type == 'LRN':
+            return Normalization.intra_channel_local_response_normalization(dataset_X)
+        elif normalization_type == 'histogram eq':
+            return Normalization.histogram_equalization(dataset_X)
+        elif normalization_type == 'CLA hist eq':
+            return Normalization.CLA_hist_equalization(dataset_X)
+        elif normalization_type == 'ZCA whiten':
+            return Normalization.ZCA_whiten(dataset_X)
+
+        print("[preprocess_images()] argument normalization_type not found.")
+        return dataset_X
+
+    @staticmethod
     def pixelsScalling(dataset: np.ndarray) -> np.ndarray:
         return dataset / 255.0
 
