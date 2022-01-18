@@ -201,7 +201,7 @@ class Normalization:
         Intra channel local response normalization
         :param dataset_X:
         :param enableRGB:
-        :param halfsize:
+        :param halfsize: kernel halfsize
         :param bias: added to avoid any singularities (division by zero)
         :param alpha: normalization constant
         :param beta: contrasting constant

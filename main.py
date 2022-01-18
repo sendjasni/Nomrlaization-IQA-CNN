@@ -1,6 +1,9 @@
 # Internal files
 from utiles import *
 from normalization import Normalization
+from dataset import Dataset
+from model import Model
+from constants import *
 
 # Python-Standard librairies
 import os
@@ -16,27 +19,11 @@ import keras
 import matplotlib.pyplot as plt
 from scipy.stats import pearsonr, spearmanr
 
-# Paths :
-ROOT_DATABASE = Path("./database")
-CSV_DATAFILE_DIR = ROOT_DATABASE / "csv_datafile"
-SAVED_TRAINING_DIR = Path("./saved_training")
-LOGS_DIR = Path("./training_logs")
-DATAFILE_NAME = 'CSIQ_DMOS_allAWGN.csv'
-
-# User options :
-POSSIBLE_PREPROCESSES_IMG = ['SCALE_0_1', 'CENTERING', 'STANDARD_SIGMA']
-PREPROCESS_IMG = ''
-# NO_TRAINING = False  # just recover older training and test it
-FIX_RANDOM = True
-SAVE_TRAINING = True
-TEST_BASE_PERCENTAGE = 0.2  # Pourcentage de test/train (la base de validation sera prélevée dans la base de train)
-VALID_BASE_PERCENTAGE = 0.2  # Pourcentage de valid/train (la base de validation sera prélevée dans la base de train)
-
 # Init
 
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
 print("Number GPUs avalable: ", len(physical_devices))
-tf.config.experimental.set_memory_growth(physical_devices[0], True)
+# tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 os.environ['PYTHONHASHSEED'] = '0'
 os.environ['TF_DETERMINISTIC_OPS'] = '1'
@@ -47,7 +34,7 @@ if FIX_RANDOM:
 
 # Image read and imageset
 
-nparray_img, nparray_label, dataframe = get_dataset_from_csv(CSV_DATAFILE_DIR / DATAFILE_NAME, ROOT_DATABASE, verbose=True)
+nparray_img, nparray_label, dataframe = Dataset.get_dataset_from_csv(CSV_DATAFILE_DIR / DATAFILE_NAME, ROOT_DATABASE, verbose=True)
 
 originals_names = dataframe['image'].unique()
 nb_distor = len(dataframe['dst_type'].unique()) * len(dataframe['dst_lev'].unique())
@@ -62,26 +49,27 @@ plot_multiple_img(nparray_img)
 # Preprocessing images (applying [0, 1] scale to img, centering img values, standardizing, etc.)
 
 nparray_img_processed = preprocessing_images(nparray_img, PREPROCESS_IMG)
-Normalization.ZCA_whiten(nparray_img)
+
 print(f"Valeur min des images : {nparray_img_processed.min()}, valeur max des images : {nparray_img_processed.max()}")
 
 # Shuffle and splitting uniques originals (imgs names without distorsions)
 
-permut_originals, originals_names_permuted = create_base_permut_and_split(originals_names)
+permut_originals, originals_names_permuted = Dataset.create_base_permut_and_split(originals_names)
 
 # Shuffle et séparations des scores associés aux images traitées
 # Shuffle et sépérations des images d'entrainement
 
-permutlabels = convert_permutoriginals_to_permutlabels(permut_originals, nb_distor)
+permutlabels = Dataset.convert_permutoriginals_to_permutlabels(permut_originals, nb_distor)
 
-nparray_label_permuted = apply_permut_nparray(nparray_label, permutlabels)
-nparray_img_permuted = apply_permut_nparray(nparray_img_processed, permutlabels)
+nparray_label_permuted = Dataset.apply_permut_nparray(nparray_label, permutlabels)
+nparray_img_permuted = Dataset.apply_permut_nparray(nparray_img_processed, permutlabels)
 
-test_mos, train_mos = split_test_and_train(nparray_label_permuted, nb_distor, TEST_BASE_PERCENTAGE)
-test_images, train_images = split_test_and_train(nparray_img_processed, nb_distor, TEST_BASE_PERCENTAGE)
+test_mos, train_mos = Dataset.split_test_and_train(nparray_label_permuted, nb_distor, TEST_BASE_PERCENTAGE)
+test_images, train_images = Dataset.split_test_and_train(nparray_img_processed, nb_distor, TEST_BASE_PERCENTAGE)
 
 print(f"Permutation originals : {permut_originals},\n permut images ({len(permutlabels)}) : {permutlabels}")
 print(f"Array to split after same shuffle : \n {nparray_label_permuted.flatten()}")
+print(f"Shape : \n {nparray_img_permuted.shape}")
 
 if not PREPROCESS_IMG:
     plot_multiple_img(nparray_img_processed)
@@ -93,17 +81,8 @@ print(f"Les {test_images.shape[0]} premières images sont gardées pour le test"
 
 initializer = tf.keras.initializers.he_normal()
 
-# Hyper-parameters for the training process
-
-input_shape = (512, 512, 3)  # input shape of the model depending on the shape of input images, so be carefull.
-# You need to get this from one of the images. It is preferable to start with a shape of (256, 256, C),
-# C is the number of channels (If RGB then C=3, else C=1)
-batch_size = 16  # mini-batch size
-epochs = 100  # number of epochs.
-optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3, decay=1e-4 / epochs)  # optimizer for the model's training
-
 # Creating the CNN model
-iqa_model = create_model(input_shape, initializer)
+iqa_model = Model.create_model(input_shape, initializer)
 
 # iqa_model.summary()  # An overview on the model (summary of the network)
 
@@ -123,9 +102,11 @@ else:
 
 # Trains the model for a fixed number of epochs (iterations on the used dataset)
 
+print("Checkpoint 1")
 training_history = iqa_model.fit(x=train_images, y=train_mos, batch_size=batch_size,
                                  epochs=epochs, validation_split=VALID_BASE_PERCENTAGE, shuffle=True,
                                  callbacks=fit_callbacks)
+print("Checkpoint 2")
 
 # plot loss and val_loss along the training
 
