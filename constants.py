@@ -17,7 +17,7 @@ PREPROCESS_IMG = 'CLA hist eq'
 FIX_RANDOM = True
 SAVE_TRAINING = True
 ENABLE_PATCH_DATA_AUGMENTATION = True
-DATA_AUGMENT_FACTOR = 2  # if 2 => one img divided by 2 in height and by 2 in width (4 patchs)
+DATA_AUGMENT_FACTOR = 1  # if 2 => one img divided by 2 in height and by 2 in width (4 patchs)
 TEST_BASE_PERCENTAGE = 0.2  # Pourcentage de test/train (la base de validation sera prélevée dans la base de train)
 VALID_BASE_PERCENTAGE = 0.2  # Pourcentage de valid/train (la base de validation sera prélevée dans la base de train)
 

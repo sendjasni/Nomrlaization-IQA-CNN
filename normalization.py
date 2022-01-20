@@ -88,12 +88,32 @@ class Normalization:
     @staticmethod
     def standardize(dataset_X: np.ndarray) -> np.ndarray:
         """Using per-pixel standard deviation
-        >>> dataset = get_quick_dataset(inRGB=True)
+        >>> dataset = get_quick_dataset(inRGB=False)
         >>> res = Normalization.standardize(dataset)
         >>> a = plt.imshow(res[3, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
         >>> plt.show()
         """
         return Normalization.center(dataset_X) / np.std(dataset_X, axis=0)
+
+    @staticmethod
+    def simplified_whitening(dataset_X: np.ndarray) -> np.ndarray:
+        """
+        Must take in gray img
+        Source: https://medium.com/@dibyadas/visualizing-different-normalization-techniques-84ea5cc8c378
+        >>> dataset = get_quick_dataset(inRGB=False)
+        >>> res = Normalization.simplified_whitening(dataset)
+        >>> a = plt.imshow(res[3, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
+        >>> plt.show()
+        """
+
+        assert dataset_X.shape[3] == 1, "RGB images are not allowed to be simplified_whiten"
+
+        mean_filter = np.ones((dataset_X.shape[0], 1, 1, 1)) / dataset_X.shape[0]
+        squared_images = tf.nn.conv2d(Normalization.center(dataset_X) ** 2, tf.convert_to_tensor(mean_filter), strides=[1, 1, 1, 1], padding="SAME")
+        standard_deviation = np.sqrt(squared_images.numpy())
+        new_X = Normalization.center(dataset_X) / standard_deviation
+        return new_X
+
 
     @staticmethod
     def ZCA_whiten(dataset_X: np.ndarray, epsilon=0.1) -> np.ndarray:
@@ -246,3 +266,10 @@ class Normalization:
             new_X[i_img, :, :, 0] = 1 / (bias + (alpha * signal.convolve2d(imgsquare, sum_kernel, mode='same', boundary='symm')) ** beta)
 
         return new_X
+
+    @staticmethod
+    def intra_channel_local_response_normalization(dataset_X: np.ndarray, enableRGB=False, halfsize=2, bias=1,
+                                                   alpha=0.0001, beta=0.5) -> np.ndarray:
+        pass
+        # dataset_X * dataset_X
+        # sizes = input

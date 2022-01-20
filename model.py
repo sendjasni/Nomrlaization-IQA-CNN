@@ -18,7 +18,7 @@ class Model:
         return x
 
     @staticmethod
-    def create_model(input_shape, initializer, filters=(32, 64, 128, 256, 512)):
+    def create_model(input_shape, initializer, filters=(64, 128, 256, 512)):
         chan_dim = -1
         inputs = tf.keras.layers.Input(shape=input_shape)
 

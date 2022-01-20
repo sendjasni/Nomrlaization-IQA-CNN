@@ -91,13 +91,16 @@ class Dataset:
         return arr_test, arr_train
 
     @staticmethod
-    def data_augmentation_patching(dataset_X: np.ndarray, nb_division: int, labels: np.ndarray = None) -> np.ndarray:
+    def data_augmentation_patching(dataset_X: np.ndarray, nb_division: int, labels: np.ndarray = None):
         """
         >>> dataset = get_quick_dataset(inRGB=True)
         >>> dataset = Dataset.data_augmentation_patching(dataset[0:1,:,:,:], nb_division=2)
         >>> a = plt.imshow(dataset[0, :, :, :]); plt.show()
         >>> a = plt.imshow(dataset[1, :, :, :]); plt.show()
         """
+
+        if nb_division == 1:  # rien à faire
+            return dataset_X, labels
 
         imgs_nb, h, w, c = dataset_X.shape
         assert h % nb_division == 0, f"{h} rows is not evenly divisible by {nb_division}"

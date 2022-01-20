@@ -68,8 +68,8 @@ test_mos_before_augment, train_mos_before_augment = Dataset.split_test_and_train
 test_images_before_augment, train_images_before_augment = Dataset.split_test_and_train(nparray_img_processed, nb_distor, TEST_BASE_PERCENTAGE)
 
 print(f"Before data_augmentation : trainshape {train_images_before_augment.shape};{train_mos_before_augment.shape}; testshape {test_images_before_augment.shape};{test_mos_before_augment.shape}")
-train_images, train_mos = Dataset.data_augmentation_patching(train_images_before_augment, nb_division=2, labels=train_mos_before_augment)
-test_images, test_mos = Dataset.data_augmentation_patching(test_images_before_augment, nb_division=2, labels=test_mos_before_augment)
+train_images, train_mos = Dataset.data_augmentation_patching(train_images_before_augment, nb_division=DATA_AUGMENT_FACTOR, labels=train_mos_before_augment)
+test_images, test_mos = Dataset.data_augmentation_patching(test_images_before_augment, nb_division=DATA_AUGMENT_FACTOR, labels=test_mos_before_augment)
 print(f"After data_augmentation : trainshape {train_images.shape};{train_mos.shape}; testshape {test_images.shape};{test_mos.shape}")
 
 print(f"Permutation originals : {permut_originals},\n permut images ({len(permutlabels)}) : {permutlabels}")
