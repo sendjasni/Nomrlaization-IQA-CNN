@@ -4,10 +4,12 @@ import tensorflow as tf
 # Paths :
 
 ROOT_DATABASE = Path("./database")
+DATABASE_NAME = "CSIQ"  # name of the folder
+ROOT_DST_IMG = ROOT_DATABASE / DATABASE_NAME / "dst_imgs"
 CSV_DATAFILE_DIR = ROOT_DATABASE / "csv_datafile"
 SAVED_TRAINING_DIR = Path("./saved_training")
 LOGS_DIR = Path("./training_logs")
-DATAFILE_NAME = 'CSIQ_DMOS_allAWGN.csv'
+DATAFILE_NAME = 'CSIQ_DMOS_except_contrast.csv'
 
 # User options :
 
@@ -17,7 +19,8 @@ PREPROCESS_IMG = 'CLA hist eq'
 FIX_RANDOM = True
 SAVE_TRAINING = True
 ENABLE_PATCH_DATA_AUGMENTATION = True
-DATA_AUGMENT_FACTOR = 1  # if 2 => one img divided by 2 in height and by 2 in width (4 patchs)
+USE_GRAY = True
+DATA_AUGMENT_FACTOR = 8  # if 2 => one img divided by 2 in height and by 2 in width (4 patchs)
 TEST_BASE_PERCENTAGE = 0.2  # Pourcentage de test/train (la base de validation sera prélevée dans la base de train)
 VALID_BASE_PERCENTAGE = 0.2  # Pourcentage de valid/train (la base de validation sera prélevée dans la base de train)
 

@@ -1,4 +1,8 @@
 from constants import *
 import main
+import main_preprocess
 
-main.run()
+env = 'LOCAL'
+
+
+main_preprocess.run(env)

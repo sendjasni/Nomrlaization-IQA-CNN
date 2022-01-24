@@ -42,7 +42,7 @@ def run(env):
     # Image read and imageset
 
     nparray_img, nparray_label, dataframe = Dataset.get_dataset_from_csv(cst.CSV_DATAFILE_DIR / cst.DATAFILE_NAME,
-                                                                         cst.ROOT_DATABASE, verbose=True)
+                                                                         cst.ROOT_DST_IMG, verbose=True, gray=cst.USE_GRAY)
 
     originals_names = dataframe['image'].unique()
     nb_distor = len(dataframe['dst_type'].unique()) * len(dataframe['dst_lev'].unique())
@@ -75,7 +75,7 @@ def run(env):
 
     test_mos_before_augment, train_mos_before_augment = Dataset.split_test_and_train(nparray_label_permuted, nb_distor,
                                                                                      cst.TEST_BASE_PERCENTAGE)
-    test_images_before_augment, train_images_before_augment = Dataset.split_test_and_train(nparray_img_processed,
+    test_images_before_augment, train_images_before_augment = Dataset.split_test_and_train(nparray_img_permuted,
                                                                                            nb_distor,
                                                                                            cst.TEST_BASE_PERCENTAGE)
 

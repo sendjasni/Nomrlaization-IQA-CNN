@@ -51,20 +51,20 @@ def get_quick_dataset(inRGB=False) -> np.ndarray:
     :return: dataset (imgs=4, w=512, h=512, colors=3)
     """
     if inRGB:
-        i1 = np.asarray(Image.open('database/src_imgs/foxy.png'))
-        i2 = np.asarray(Image.open('database/src_imgs/aerial_city.png'))
-        i3 = np.asarray(Image.open('database/src_imgs/monument.png'))
-        i4 = np.asarray(Image.open('database/src_imgs/lake.png'))
+        i1 = np.asarray(Image.open('database/CSIQ/src_imgs/foxy.png'))
+        i2 = np.asarray(Image.open('database/CSIQ/src_imgs/aerial_city.png'))
+        i3 = np.asarray(Image.open('database/CSIQ/src_imgs/monument.png'))
+        i4 = np.asarray(Image.open('database/CSIQ/src_imgs/lake.png'))
         dataset = np.zeros((4, 512, 512, 3))
         dataset[0, :, :, :] = i1
         dataset[1, :, :, :] = i2
         dataset[2, :, :, :] = i3
         dataset[3, :, :, :] = i4
     else:
-        i1 = np.asarray(Image.open('database/src_imgs/foxy.png').convert('L'))
-        i2 = np.asarray(Image.open('database/src_imgs/aerial_city.png').convert('L'))
-        i3 = np.asarray(Image.open('database/src_imgs/monument.png').convert('L'))
-        i4 = np.asarray(Image.open('database/src_imgs/lake.png').convert('L'))
+        i1 = np.asarray(Image.open('database/CSIQ/src_imgs/foxy.png').convert('L'))
+        i2 = np.asarray(Image.open('database/CSIQ/src_imgs/aerial_city.png').convert('L'))
+        i3 = np.asarray(Image.open('database/CSIQ/src_imgs/monument.png').convert('L'))
+        i4 = np.asarray(Image.open('database/CSIQ/src_imgs/lake.png').convert('L'))
         dataset = np.zeros((4, 512, 512, 1))
         dataset[0, :, :, 0] = i1
         dataset[1, :, :, 0] = i2

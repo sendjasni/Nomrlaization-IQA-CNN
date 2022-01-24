@@ -9,26 +9,32 @@ import math
 class Dataset:
 
     @staticmethod
-    def get_dataset_from_csv(csvfilepath: str, database_dir: Path, verbose=False):
-        """Images must be in database_dir/dst_imgs/
-        with the name format [photo_name].[distorsion_type].[distorsion_level].png"""
+    def get_dataset_from_csv(csvfilepath: str, database_dir: Path, verbose=False, gray=False):
+        """Images must be in the name format [photo_name].[distorsion_type].[distorsion_level].png
+        >>> DB = Path('./database/CSIQ/dst_imgs')
+        >>> csvfile = DB / "csv_datafile" / "CSIQ_DMOS_allAWGN.csv"
+        >>> nparray_img, nparray_label, dataframe = Dataset.get_dataset_from_csv(csvfile, DB, gray=True)
+        """
 
         dataframe = pd.read_csv(csvfilepath)
+        nb_rows = dataframe.shape[0]
 
-        nparray_img = np.empty((0, 512, 512, 3))
-        nparray_label = np.empty((0, 1, 1, 1))
+        nparray_img = np.empty((nb_rows, 512, 512, 3)) if not gray else np.empty((nb_rows, 512, 512, 1))
+        nparray_label = np.empty((nb_rows, 1, 1, 1))
 
         for i, row in dataframe.iterrows():
-            img_path = f"{str(database_dir / 'dst_imgs' / row['image'])}.{row['dst_type']}.{str(row['dst_lev'])}.png"
+            img_path = f"{str(database_dir / row['image'])}.{row['dst_type']}.{str(row['dst_lev'])}.png"
 
-            img_PIL = keras.preprocessing.image.load_img(img_path)
+            img_PIL = keras.preprocessing.image.load_img(img_path) if not gray else keras.preprocessing.image.load_img(
+                img_path, color_mode="grayscale")
             img_np = keras.preprocessing.image.img_to_array(img_PIL)
             # print(f"shape img np : {img_np.shape}")
             # print(f"shape nparray_img : {nparray_img.shape}")
 
-            nparray_img = np.append(nparray_img, img_np[np.newaxis, ...], axis=0)
+            nparray_img[i, :, :, :] = img_np
+
             quality_score = np.array([row['dmos']])
-            nparray_label = np.append(nparray_label, quality_score[np.newaxis, np.newaxis, np.newaxis, ...], axis=0)
+            nparray_label[i, 0, 0, 0] = quality_score
 
         if verbose:
             print(f"Shape du tensor d'images : {nparray_img.shape}")
@@ -91,10 +97,10 @@ class Dataset:
         return arr_test, arr_train
 
     @staticmethod
-    def data_augmentation_patching(dataset_X: np.ndarray, nb_division: int, labels: np.ndarray = None):
+    def data_augmentation_patching(dataset_X: np.ndarray, nb_division: int, labels: np.ndarray = None, verbose=False):
         """
-        >>> dataset = get_quick_dataset(inRGB=True)
-        >>> dataset = Dataset.data_augmentation_patching(dataset[0:1,:,:,:], nb_division=2)
+        >>> dataset = get_quick_dataset(inRGB=True)[0:2, :, :, :]
+        >>> dataset = Dataset.data_augmentation_patching(dataset, nb_division=2)
         >>> a = plt.imshow(dataset[0, :, :, :]); plt.show()
         >>> a = plt.imshow(dataset[1, :, :, :]); plt.show()
         """
@@ -107,23 +113,34 @@ class Dataset:
         assert w % nb_division == 0, f"{w} cols is not evenly divisible by {nb_division}"
 
         nb_duplicate = nb_division * nb_division
-        print(f"[DATA AUGMENT] Processing to get x{nb_duplicate} data by tiling the images...")
+        nb_patch = dataset_X.shape[0] * nb_duplicate
+        if verbose: print(f"[DATA AUGMENT] Processing to get x{nb_duplicate}={nb_patch} data by tiling the images...")
 
         patch_shape = (dataset_X.shape[1] // nb_division, dataset_X.shape[2] // nb_division)
         # new_X = (dataset_X.reshape(h // nb_division, nb_division, -1, nb_division)
         #          .swapaxes(1, 2)
         #          .reshape(-1, nb_division, nb_division))
 
-        new_X = np.zeros((0, patch_shape[0], patch_shape[1], dataset_X.shape[3])).astype(int)
+        new_X = np.zeros((nb_patch, patch_shape[0], patch_shape[1], dataset_X.shape[3]), dtype="int")
+
+        rangex = range(0, dataset_X.shape[1], patch_shape[0])  # pas certain de si c'est shape[1] ou shape[2]
+        rangey = range(0, dataset_X.shape[2], patch_shape[1])
+        x_tot = len(list(rangex))
+        y_tot = len(list(rangey))
 
         for i_img in range(dataset_X.shape[0]):
-            for x in range(0, dataset_X.shape[1], patch_shape[0]):  # pas certain de si c'est shape[1] ou shape[2]
-                for y in range(0, dataset_X.shape[2], patch_shape[1]):
+            if verbose and i_img % 20 == 0: print(f"Tiling img {i_img+1}/{dataset_X.shape[0]}...")
+            for x in rangex:
+                for y in rangey:
                     new_patch = dataset_X[i_img, y:y + patch_shape[0], x:x + patch_shape[1], :]
-                    new_X = np.append(new_X, new_patch[np.newaxis, :, :, :], axis=0)
 
-        print(f"[DATA AUGMENT] Finished.")
-        if labels.any():
+                    i_x = x // patch_shape[0]
+                    i_y = y // patch_shape[1]
+                    i_patch = (i_img * x_tot * y_tot) + (i_x * y_tot) + i_y
+                    new_X[i_patch, :, :, :] = new_patch
+
+        if verbose: print(f"[DATA AUGMENT] Finished.")
+        if labels is not None:
             labels = np.repeat(labels.flatten(), nb_duplicate)[:, np.newaxis, np.newaxis, np.newaxis]
             return new_X, labels
 
