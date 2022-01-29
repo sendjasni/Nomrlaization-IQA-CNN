@@ -20,7 +20,6 @@ from scipy.stats import pearsonr, spearmanr
 
 
 def run(env):
-
     if env == "COLAB":
         import constants_for_colab as cst
     elif env == "LOCAL":
@@ -42,7 +41,8 @@ def run(env):
     # Image read and imageset
 
     nparray_img, nparray_label, dataframe = Dataset.get_dataset_from_csv(cst.CSV_DATAFILE_DIR / cst.DATAFILE_NAME,
-                                                                         cst.ROOT_DATABASE, verbose=True)
+                                                                         cst.ROOT_DST_IMG, verbose=True,
+                                                                         gray=cst.USE_GRAY)
 
     originals_names = dataframe['image'].unique()
     nb_distor = len(dataframe['dst_type'].unique()) * len(dataframe['dst_lev'].unique())
@@ -75,7 +75,7 @@ def run(env):
 
     test_mos_before_augment, train_mos_before_augment = Dataset.split_test_and_train(nparray_label_permuted, nb_distor,
                                                                                      cst.TEST_BASE_PERCENTAGE)
-    test_images_before_augment, train_images_before_augment = Dataset.split_test_and_train(nparray_img_processed,
+    test_images_before_augment, train_images_before_augment = Dataset.split_test_and_train(nparray_img_permuted,
                                                                                            nb_distor,
                                                                                            cst.TEST_BASE_PERCENTAGE)
 
@@ -117,7 +117,8 @@ def run(env):
     # Configure checkpoints to save training
 
     if cst.SAVE_TRAINING:
-        callbacks_arr = create_callbacks_fun(cst.ROOT_DATABASE, cst.SAVED_TRAINING_DIR, fold_no=0, Normalization=cst.PREPROCESS_IMG)
+        callbacks_arr = create_callbacks_fun(cst.ROOT_DATABASE, cst.SAVED_TRAINING_DIR, fold_no=0,
+                                             Normalization=cst.PREPROCESS_IMG)
         fit_callbacks = callbacks_arr
     else:
         fit_callbacks = None

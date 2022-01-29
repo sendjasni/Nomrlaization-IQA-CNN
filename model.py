@@ -5,8 +5,11 @@ class Model:
 
     @staticmethod
     def regression_block(features, initializer):
+        x = tf.keras.layers.Flatten()(features)
+        # x = tf.keras.layers.GlobalAveragePooling2D()(features)
+
         x = tf.keras.layers.Dense(1024, activation="relu",
-                                  kernel_initializer=initializer)(features)
+                                  kernel_initializer=initializer)(x)
         x = tf.keras.layers.Dropout(0.5)(x)
         x = tf.keras.layers.Dense(512, activation="relu",
                                   kernel_initializer=initializer)(x)

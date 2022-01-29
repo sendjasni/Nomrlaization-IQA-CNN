@@ -24,23 +24,35 @@ class TimingCallback(tf.keras.callbacks.Callback):
         self.logs.append(timer() - self.starttime)
 
 
-def create_callbacks_fun(log_dir: Path, weights_dir: Path, fold_no, Normalization):
-    log_file = log_dir / ('Fold_' + str(fold_no) + '.log')
+def create_callbacks_fun(log_dir: Path, weights_dir: Path, fold_no, save_name='tmp', early_stop_bool=True):
+    # log_file = log_dir / ('Fold_' + str(fold_no) + '.log')
+    log_file = log_dir / (save_name + '.log')
 
     csv_loger = tf.keras.callbacks.CSVLogger(
         log_file, separator=",", append=False)
 
-    filepath = weights_dir / ('weights_' + Normalization + '.hdf5')
+    filepath = weights_dir / (save_name + '.hdf5')
 
     checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor="val_loss", mode="min",
                                                     save_best_only=True, save_weights_only=True, save_freq='epoch',
                                                     verbose=1)
+
     train_tile_cb = TimingCallback()
-    callbacks = [
-        csv_loger,
-        train_tile_cb,
-        checkpoint
-    ]
+
+    if early_stop_bool:
+        early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', mode='min', patience=30, restore_best_weights=True)
+        callbacks = [
+            csv_loger,
+            # checkpoint,
+            train_tile_cb,
+            early_stop
+        ]
+    else:
+        callbacks = [
+            csv_loger,
+            # checkpoint,
+            train_tile_cb
+        ]
 
     return callbacks
 
@@ -51,20 +63,20 @@ def get_quick_dataset(inRGB=False) -> np.ndarray:
     :return: dataset (imgs=4, w=512, h=512, colors=3)
     """
     if inRGB:
-        i1 = np.asarray(Image.open('database/src_imgs/foxy.png'))
-        i2 = np.asarray(Image.open('database/src_imgs/aerial_city.png'))
-        i3 = np.asarray(Image.open('database/src_imgs/monument.png'))
-        i4 = np.asarray(Image.open('database/src_imgs/lake.png'))
+        i1 = np.asarray(Image.open('database/CSIQ/src_imgs/foxy.png'))
+        i2 = np.asarray(Image.open('database/CSIQ/src_imgs/aerial_city.png'))
+        i3 = np.asarray(Image.open('database/CSIQ/src_imgs/monument.png'))
+        i4 = np.asarray(Image.open('database/CSIQ/src_imgs/lake.png'))
         dataset = np.zeros((4, 512, 512, 3))
         dataset[0, :, :, :] = i1
         dataset[1, :, :, :] = i2
         dataset[2, :, :, :] = i3
         dataset[3, :, :, :] = i4
     else:
-        i1 = np.asarray(Image.open('database/src_imgs/foxy.png').convert('L'))
-        i2 = np.asarray(Image.open('database/src_imgs/aerial_city.png').convert('L'))
-        i3 = np.asarray(Image.open('database/src_imgs/monument.png').convert('L'))
-        i4 = np.asarray(Image.open('database/src_imgs/lake.png').convert('L'))
+        i1 = np.asarray(Image.open('database/CSIQ/src_imgs/foxy.png').convert('L'))
+        i2 = np.asarray(Image.open('database/CSIQ/src_imgs/aerial_city.png').convert('L'))
+        i3 = np.asarray(Image.open('database/CSIQ/src_imgs/monument.png').convert('L'))
+        i4 = np.asarray(Image.open('database/CSIQ/src_imgs/lake.png').convert('L'))
         dataset = np.zeros((4, 512, 512, 1))
         dataset[0, :, :, 0] = i1
         dataset[1, :, :, 0] = i2
@@ -115,14 +127,24 @@ def preprocessing_images(nparray_img: np.ndarray, preprocessing_type: str):
     #   nparray_img[i,:,:,:] = img_tmp
 
 
-def save_perf_save_plot(fig, predictions: np.ndarray, test_mos: np.ndarray, database_dir: Path, name: str = 'default'):
+def save_perf_save_plot(fig, predictions: np.ndarray, test_mos: np.ndarray, dir_path: Path, name: str = 'default'):
     """Sauvegarde les résultats de prédiction d'un test de réseau entraîné"""
 
-    concat_test_result = np.array([predictions.flatten(), test_mos.flatten()])
+    pathname = str(dir_path / name)
 
-    pathname = str(database_dir / "perfs" / name)
-    np.savetxt(pathname + ".csv", concat_test_result, delimiter=",")
+    save_perf(predictions, test_mos, dir_path, name)
+
     fig.savefig(pathname)
+
+
+def save_perf(predictions: np.ndarray, test_mos: np.ndarray, dir_path: Path, name: str = 'default'):
+    """Sauvegarde les résultats de prédiction d'un test de réseau entraîné"""
+
+    concat_test_result = np.array([predictions.flatten(), test_mos.flatten()]).T
+
+    pathname = str(dir_path / name)
+    # np.savetxt(pathname + ".csv", concat_test_result, delimiter=",")
+    pd.DataFrame(concat_test_result).to_csv(pathname+".csv", header=["p_mos", "mos"])
 
 
 def plot_training_history(training_history):

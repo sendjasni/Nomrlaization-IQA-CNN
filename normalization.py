@@ -21,29 +21,63 @@ class Normalization:
     @staticmethod
     def preprocess_images(dataset_X: np.ndarray, normalization_type: str) -> np.ndarray:
 
-        if normalization_type == 'scale_0_1':
+        if normalization_type == 'nothing':
+            new_X = dataset_X
+        elif normalization_type == 'scale_0_1':
             return Normalization.pixelsScalling(dataset_X)
+        elif normalization_type == 'tight_scale_0_1':
+            return Normalization.pixel_tight_scaling(dataset_X)
         elif normalization_type == 'centering':
             return Normalization.center(dataset_X)
+        elif normalization_type == 'centering_reduced':
+            return Normalization.center_reduced(dataset_X)
         elif normalization_type == 'standardization':
-            return Normalization.standardize(dataset_X)
+            new_X = Normalization.standardize(dataset_X)
         elif normalization_type == 'LCN':
-            return Normalization.local_contrast_norm(dataset_X)
+            new_X = Normalization.local_contrast_norm(dataset_X)
         elif normalization_type == 'LRN':
-            return Normalization.intra_channel_local_response_normalization(dataset_X)
-        elif normalization_type == 'histogram eq':
-            return Normalization.histogram_equalization(dataset_X)
-        elif normalization_type == 'CLA hist eq':
-            return Normalization.CLA_hist_equalization(dataset_X)
-        elif normalization_type == 'ZCA whiten':
-            return Normalization.ZCA_whiten(dataset_X)
+            new_X = Normalization.intra_channel_local_response_normalization(dataset_X)
+        elif normalization_type == 'histogram_eq':
+            new_X = Normalization.histogram_equalization(dataset_X)
+        elif normalization_type == 'CLAHE':
+            new_X = Normalization.CLA_hist_equalization(dataset_X)
+        elif normalization_type == 'ZCAwhiten':
+            new_X = Normalization.ZCA_whiten(dataset_X)
+        elif normalization_type == 'simplified_whitening':
+            new_X = Normalization.simplified_whitening(dataset_X)
+        else:
+            print("[preprocess_images()] argument normalization_type not found.")
+            return dataset_X
 
-        print("[preprocess_images()] argument normalization_type not found.")
-        return dataset_X
+        return Normalization.pixel_tight_scaling(new_X)
 
     @staticmethod
     def pixelsScalling(dataset: np.ndarray) -> np.ndarray:
         return dataset / 255.0
+
+    @staticmethod
+    def pixel_tight_scaling(dataset: np.ndarray) -> np.ndarray:
+        """Remet les valeurs avec min_image = 0, max_image = 255
+
+        Là je recentre toutes les images une par une, il vaudrait mieux que je prenne le maximum et le minimum de tout
+        le dataset et que je traite avec ces 2 valeurs uniquement
+
+        >>> dataset = np.arange(3*8*8).reshape(3,8,8,1)
+        >>> dataset = Normalization.pixel_tight_scaling(dataset)
+        >>> print(dataset.shape)
+        (3, 8, 8, 1)
+        >>> print(np.amax(dataset, axis=(1, 2)).flatten())
+        [1. 1. 1.]
+        >>> print(np.amin(dataset, axis=(1, 2)).flatten())
+        [0. 0. 0.]
+        """
+
+        all_img_max = np.amax(dataset, axis=(1, 2))[..., None, None]
+        all_img_min = np.amin(dataset, axis=(1, 2))[..., None, None]
+
+        tight_scaled = (dataset - all_img_min) / (all_img_max - all_img_min)
+        return np.nan_to_num(tight_scaled)
+
 
     @staticmethod
     def get_per_pixel_mean(dataset: np.ndarray) -> np.ndarray:
@@ -64,8 +98,8 @@ class Normalization:
     def get_gaussian_kernel(halfsize, sigma=2.0):
         """
         >>> ker = Normalization.get_gaussian_kernel(halfsize=4) # (i_img, h_img, w_img, colors)
-        >>> a = plt.imshow(ker) #doctest:+ELLIPSIS
-        >>> plt.show() #doctest:+ELLIPSIS
+        >>> a = plt.imshow(ker)
+        >>> plt.show()
         """
 
         probs = [exp(-z * z / (2 * sigma * sigma)) / sqrt(2 * pi * sigma * sigma) for z in
@@ -84,6 +118,18 @@ class Normalization:
         """
         mean = Normalization.get_per_pixel_mean(dataset_X)
         return dataset_X - mean
+
+    @staticmethod
+    def center_reduced(dataset_X: np.ndarray) -> np.ndarray:
+        """
+        Centering data between -1 and 1
+        >>> dataset = get_quick_dataset(inRGB=True)
+        >>> res = Normalization.center_reduced(dataset)
+        >>> a = plt.imshow(res[3, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
+        >>> plt.show()
+        """
+        mean = Normalization.get_per_pixel_mean(dataset_X)
+        return (dataset_X - mean) / 255
 
     @staticmethod
     def standardize(dataset_X: np.ndarray) -> np.ndarray:
@@ -187,7 +233,7 @@ class Normalization:
             thresh = np.exp(np.log(locally_sqrt + np.power(2.0, -5)).mean(axis=-1))
             locally_sqrt = locally_sqrt * np.greater(locally_sqrt - thresh.reshape(-1, 1), 0)
             locally_sqrt += 1.0 * np.equal(locally_sqrt, 0.0)
-            new_X[i_img, :, :, :] = locally_centered / locally_sqrt
+            new_X[i_img, :, :, 0] = locally_centered / locally_sqrt  # surement [i_img, :, :, :] si rgb
         return new_X
 
     @staticmethod
