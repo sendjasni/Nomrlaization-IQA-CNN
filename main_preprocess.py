@@ -63,6 +63,7 @@ def run(env):
                                                      labels=nparray_label, verbose=True)
     print("Done.")
 
+
     print("Starting norm...")
     images = Normalization.preprocess_images(patches, cst.PREPROCESS_IMG)
     print("Done.")
@@ -79,4 +80,5 @@ def run(env):
         np.save(cst.ROOT_DATABASE / cst.DATABASE_NAME / "normalized_dst_imgs" / f"CSIQ_{cst.PREPROCESS_IMG}_patch{64}.npy", images)
         np.save(cst.ROOT_DATABASE / cst.DATABASE_NAME / "normalized_dst_imgs" / f"CSIQ_{cst.PREPROCESS_IMG}_patch{64}_labels.npy", mos)
     print("Done.")
+
 

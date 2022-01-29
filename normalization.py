@@ -314,7 +314,7 @@ class Normalization:
         return new_X
 
     @staticmethod
-    def intra_channel_local_response_normalization(dataset_X: np.ndarray, enableRGB=False, halfsize=2, bias=1,
+    def intra_channel_local_response_normalization2(dataset_X: np.ndarray, enableRGB=False, halfsize=2, bias=1,
                                                    alpha=0.0001, beta=0.5) -> np.ndarray:
         pass
         # dataset_X * dataset_X

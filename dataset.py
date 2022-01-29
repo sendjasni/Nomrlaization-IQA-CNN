@@ -99,8 +99,13 @@ class Dataset:
     @staticmethod
     def data_augmentation_patching(dataset_X: np.ndarray, nb_division: int, labels: np.ndarray = None, verbose=False):
         """
+<<<<<<< HEAD
         >>> dataset = get_quick_dataset(inRGB=True)[0:2, :, :, :].astype(int)
         >>> dataset = Dataset.data_augmentation_patching(dataset, nb_division=8)
+=======
+        >>> dataset = get_quick_dataset(inRGB=True)[0:2, :, :, :]
+        >>> dataset = Dataset.data_augmentation_patching(dataset, nb_division=2)
+>>>>>>> 88c8d8ad31a91a3c94262c0c6edba967a5127c85
         >>> a = plt.imshow(dataset[0, :, :, :]); plt.show()
         >>> a = plt.imshow(dataset[1, :, :, :]); plt.show()
         """
@@ -121,7 +126,11 @@ class Dataset:
         #          .swapaxes(1, 2)
         #          .reshape(-1, nb_division, nb_division))
 
+<<<<<<< HEAD
         new_X = np.zeros((nb_patch, patch_shape[0], patch_shape[1], dataset_X.shape[3]))
+=======
+        new_X = np.zeros((nb_patch, patch_shape[0], patch_shape[1], dataset_X.shape[3]), dtype="int")
+>>>>>>> 88c8d8ad31a91a3c94262c0c6edba967a5127c85
 
         rangex = range(0, dataset_X.shape[1], patch_shape[0])  # pas certain de si c'est shape[1] ou shape[2]
         rangey = range(0, dataset_X.shape[2], patch_shape[1])
