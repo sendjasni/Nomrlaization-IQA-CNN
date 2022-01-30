@@ -57,25 +57,22 @@ class Normalization:
 
     @staticmethod
     def pixel_tight_scaling(dataset: np.ndarray) -> np.ndarray:
-        """Remet les valeurs avec min_image = 0, max_image = 255
-
-        Là je recentre toutes les images une par une, il vaudrait mieux que je prenne le maximum et le minimum de tout
-        le dataset et que je traite avec ces 2 valeurs uniquement
+        """Remet les valeurs avec min_Dataset = 0, max_Dataset = 1
 
         >>> dataset = np.arange(3*8*8).reshape(3,8,8,1)
         >>> dataset = Normalization.pixel_tight_scaling(dataset)
         >>> print(dataset.shape)
         (3, 8, 8, 1)
-        >>> print(np.amax(dataset, axis=(1, 2)).flatten())
+        >>> print(np.amax(dataset))
         [1. 1. 1.]
-        >>> print(np.amin(dataset, axis=(1, 2)).flatten())
+        >>> print(np.amin(dataset))
         [0. 0. 0.]
         """
 
-        all_img_max = np.amax(dataset, axis=(1, 2))[..., None, None]
-        all_img_min = np.amin(dataset, axis=(1, 2))[..., None, None]
+        dataset_max = np.amax(dataset)
+        dataset_min = np.amin(dataset)
 
-        tight_scaled = (dataset - all_img_min) / (all_img_max - all_img_min)
+        tight_scaled = (dataset - dataset_min) / (dataset_max - dataset_min)
         return np.nan_to_num(tight_scaled)
 
 

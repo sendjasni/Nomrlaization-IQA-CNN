@@ -4,7 +4,7 @@ import tensorflow as tf
 # Names : (of Folders, Normalizations, etc.)
 
 DATABASE_NAME = "CSIQ"  # name of the folder
-PREPROCESS_IMG = 'CLAHE'  # scale_0_1, centering, centering_reduced, standardization, LCN, LRN, histogram_eq, CLAHE, ZCAwhiten, simplified_whitening
+PREPROCESS_IMG = 'histogram_eq'  # scale_0_1, centering, centering_reduced, standardization, LCN, LRN, histogram_eq, CLAHE, ZCAwhiten, simplified_whitening
 DATAFILE_NAME = 'CSIQ_DMOS.csv'
 
 # Paths :

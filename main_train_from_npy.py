@@ -163,4 +163,6 @@ def run(env):
         # predicted one
 
         plot_test_prediction(label_test, predictions, name_predictions_arr)
+
+        print(f"Saving predictions test to : {dir_predictions_arr}/{name_predictions_arr}")
         save_perf(predictions, label_test, dir_predictions_arr, name_predictions_arr)
