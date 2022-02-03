@@ -144,7 +144,7 @@ def save_perf(predictions: np.ndarray, test_mos: np.ndarray, dir_path: Path, nam
 
     pathname = str(dir_path / name)
     # np.savetxt(pathname + ".csv", concat_test_result, delimiter=",")
-    pd.DataFrame(concat_test_result).to_csv(pathname+".csv", header=["p_mos", "mos"])
+    pd.DataFrame(concat_test_result).to_csv(pathname+".csv", header=["p_mos", "mos"], index=False)
 
 
 def plot_training_history(training_history):
@@ -159,10 +159,14 @@ def plot_test_prediction(test_mos, predictions, name=None, saveplot=False, datab
     plt.xlabel("MOS")
     plt.ylabel("Predicted MOS")
     fig = plt.gcf()  # Keep the figure even after show() to save it later
-
+    plt.ylim([0, 1])
+    plt.xlim([0, 1])
     if name:
         plt.title(name)
 
     plt.show()
+
     if saveplot:
         save_perf_save_plot(fig, predictions, test_mos, database_dir)
+
+    return fig

@@ -5,6 +5,8 @@ from model import Model
 from utiles import *
 from scipy.stats import pearsonr, spearmanr
 import matplotlib.pyplot as plt
+from normalization import Normalization
+from numbers import Number
 
 
 def run(env):
@@ -26,40 +28,66 @@ def run(env):
 
     # for iter in cst.ITERATION:
     # saving paths
+
     if cst.ITERATION == 'all':
         all_testing_slice = np.append(np.arange(0, 1, cst.TEST_BASE_PERCENTAGE), 1)
     else:
         all_testing_slice = np.append(np.arange(0, 1, cst.TEST_BASE_PERCENTAGE), 1)[cst.ITERATION: cst.ITERATION + 2]
+
+    # all_testing_slice = cst.ALL_TESTING_SLICE
+
     print("all_testing_slice : ", all_testing_slice)
     print("for : ", range(len(all_testing_slice) - 1))
     print("first testing slice : ", all_testing_slice[0:0+2])
 
+    gray_str = '_GRAY' if cst.USE_GRAY else ''
+    preprocess_npy_str = 'nothing' if cst.PREPROCESS_ON_THE_FLY else cst.PREPROCESS_IMG
+    path_dataset = cst.ROOT_DATABASE / cst.DATABASE_NAME / "normalized_dst_imgs" / f"{cst.DATABASE_NAME}_{preprocess_npy_str}_patch{64}{gray_str}"
+
+    print(f"Loading database... ({path_dataset}.npy)")
+    imgs = np.load(f"{path_dataset}.npy")
+    labels = np.load(f"{path_dataset}_labels.npy")
+    labels = np.squeeze(labels)
+    print("Done.")
+
+    if cst.USE_GRAY:
+        first_img_before_norm = imgs[0, :, :, 0]
+        plt.imshow(first_img_before_norm, cmap='gray'); plt.show()
+    else:
+        first_img_before_norm = imgs[0, :, :, :]
+        plt.imshow(first_img_before_norm); plt.show()
+    print(f"Min/max of dataset before norm : ({np.amin(imgs)}/{np.amax(imgs)})")
+
+    if cst.PREPROCESS_ON_THE_FLY:
+        print(f"Proprecessing ({cst.PREPROCESS_IMG}) on the fly...")
+        imgs = Normalization.preprocess_images(imgs, cst.PREPROCESS_IMG)
+        print("Done.")
+
+    if cst.USE_GRAY:
+        first_img_after_norm = imgs[0, :, :, 0]
+        plt.imshow(first_img_after_norm, cmap='gray'); plt.show()
+    else:
+        first_img_after_norm = imgs[0, :, :, :]
+        plt.imshow(first_img_after_norm); plt.show()
+    print(f"Min/max of dataset after norm : ({np.amin(imgs)}/{np.amax(imgs)})")
+
     for i_iteration in range(len(all_testing_slice) - 1):
 
         testing_slice = all_testing_slice[i_iteration:i_iteration + 2]
+        if isinstance(cst.ITERATION, Number):
+            i_iteration = cst.ITERATION
+
+        # i_iteration = i_slice + (round(testing_slice[0] / cst.TEST_BASE_PERCENTAGE))
         print(f"COMMENCEMENT ITERATION {i_iteration} ({testing_slice})")
 
         name_log_weight = f"iteration{i_iteration}"
         dir_predictions_arr = cst.ROOT_PROJECT / 'test_results' / cst.DATABASE_NAME / cst.PREPROCESS_IMG
-        name_predictions_arr = f"{cst.epochs}epochs_iteration{i_iteration}"
+        name_predictions_arr = f"{cst.epochs}epochs_iteration{i_iteration}{gray_str}"
         dir_logs = cst.LOGS_DIR / cst.DATABASE_NAME / cst.PREPROCESS_IMG
         dir_weights = cst.SAVED_TRAINING_DIR / cst.DATABASE_NAME / cst.PREPROCESS_IMG
 
-        if cst.USE_GRAY:
-            imgs = np.load(
-                cst.ROOT_DATABASE / cst.DATABASE_NAME / "normalized_dst_imgs" / f"CSIQ_{cst.PREPROCESS_IMG}_patch{64}_GRAY.npy")
-            labels = np.load(
-                cst.ROOT_DATABASE / cst.DATABASE_NAME / "normalized_dst_imgs" / f"CSIQ_{cst.PREPROCESS_IMG}_patch{64}_GRAY_labels.npy")
-        else:
-            imgs = np.load(
-                cst.ROOT_DATABASE / cst.DATABASE_NAME / "normalized_dst_imgs" / f"CSIQ_{cst.PREPROCESS_IMG}_patch{64}.npy")
-            labels = np.load(
-                cst.ROOT_DATABASE / cst.DATABASE_NAME / "normalized_dst_imgs" / f"CSIQ_{cst.PREPROCESS_IMG}_patch{64}_labels.npy")
-
         print(f"Shape de X et Y : {imgs.shape} et {labels.shape}")
-        print(f"Premier score d'image {imgs[0, :, :, :].shape} : ", labels[0, 0, 0, 0])
-        labels = np.squeeze(labels)
-        print(f"Shape de X et Y after squeeze : {imgs.shape} et {labels.shape}")
+        print(f"Premier score d'image {imgs[0, :, :, :].shape} : ", labels[0])
 
         # testing_slice = [0.2, 0.4]  # [0, 0.2] => je prends les 20 % premiers
         # nb_dst_from_one_src = 64 * (5*5 + 3)  # 64 patches, 5 dist*5 lvl + 3 lvl contraste
@@ -123,19 +151,13 @@ def run(env):
         print("Checkpoint 1")
 
         if cst.USE_GRAY:
-            plt.imshow(img_train[0, :, :, 0], cmap='gray');
-            plt.show()
-            plt.imshow(img_train[1, :, :, 0], cmap='gray');
-            plt.show()
-            plt.imshow(img_train[2, :, :, 0], cmap='gray');
-            plt.show()
+            plt.imshow(img_train[0, :, :, 0], cmap='gray'); plt.show()
+            plt.imshow(img_train[1, :, :, 0], cmap='gray'); plt.show()
+            plt.imshow(img_train[2, :, :, 0], cmap='gray'); plt.show()
         else:
-            plt.imshow(img_train[0, :, :, :]);
-            plt.show()
-            plt.imshow(img_train[1, :, :, :]);
-            plt.show()
-            plt.imshow(img_train[2, :, :, :]);
-            plt.show()
+            plt.imshow(img_train[0, :, :, :]); plt.show()
+            plt.imshow(img_train[1, :, :, :]); plt.show()
+            plt.imshow(img_train[2, :, :, :]); plt.show()
 
         training_history = custom_VGG16.fit(x=img_train, y=label_train, batch_size=cst.batch_size,
                                             epochs=cst.epochs, validation_split=cst.VALID_BASE_PERCENTAGE, shuffle=True,

@@ -22,7 +22,7 @@ class Normalization:
     def preprocess_images(dataset_X: np.ndarray, normalization_type: str) -> np.ndarray:
 
         if normalization_type == 'nothing':
-            new_X = dataset_X
+            return dataset_X
         elif normalization_type == 'scale_0_1':
             return Normalization.pixelsScalling(dataset_X)
         elif normalization_type == 'tight_scale_0_1':
@@ -32,11 +32,13 @@ class Normalization:
         elif normalization_type == 'centering_reduced':
             return Normalization.center_reduced(dataset_X)
         elif normalization_type == 'standardization':
-            new_X = Normalization.standardize(dataset_X)
+            return Normalization.standardize(dataset_X)
+        elif normalization_type == 'DoG':
+            return Normalization.difference_of_gaussian(dataset_X)
         elif normalization_type == 'LCN':
             new_X = Normalization.local_contrast_norm(dataset_X)
         elif normalization_type == 'LRN':
-            new_X = Normalization.intra_channel_local_response_normalization(dataset_X)
+            new_X = Normalization.local_response_norm2(dataset_X)
         elif normalization_type == 'histogram_eq':
             new_X = Normalization.histogram_equalization(dataset_X)
         elif normalization_type == 'CLAHE':
@@ -75,7 +77,6 @@ class Normalization:
         tight_scaled = (dataset - dataset_min) / (dataset_max - dataset_min)
         return np.nan_to_num(tight_scaled)
 
-
     @staticmethod
     def get_per_pixel_mean(dataset: np.ndarray) -> np.ndarray:
         mean = np.mean(dataset, axis=0)
@@ -106,14 +107,19 @@ class Normalization:
         return kernel
 
     @staticmethod
-    def center(dataset_X: np.ndarray) -> np.ndarray:
+    def center(dataset_X: np.ndarray, perpixel) -> np.ndarray:
         """
         >>> dataset = get_quick_dataset(inRGB=True)
         >>> res = Normalization.center(dataset)
-        >>> a = plt.imshow(res[3, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
+        >>> a = plt.imshow(res[3, :, :, :]); a = plt.axis('off');
         >>> plt.show()
         """
-        mean = Normalization.get_per_pixel_mean(dataset_X)
+
+        if perpixel:
+            mean = Normalization.get_per_pixel_mean(dataset_X)
+        else:
+            mean = np.mean(dataset_X, axis=(0, 1, 2))
+
         return dataset_X - mean
 
     @staticmethod
@@ -122,40 +128,45 @@ class Normalization:
         Centering data between -1 and 1
         >>> dataset = get_quick_dataset(inRGB=True)
         >>> res = Normalization.center_reduced(dataset)
-        >>> a = plt.imshow(res[3, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
+        >>> a = plt.imshow(res[3, :, :, :].astype(float)); a = plt.axis('off');
         >>> plt.show()
         """
-        mean = Normalization.get_per_pixel_mean(dataset_X)
-        return (dataset_X - mean) / 255
+        dataset_X = Normalization.pixel_tight_scaling(dataset_X)
+        return dataset_X - np.mean(dataset_X, axis=(0, 1, 2))
 
     @staticmethod
-    def standardize(dataset_X: np.ndarray) -> np.ndarray:
-        """Using per-pixel standard deviation
+    def standardize(dataset_X: np.ndarray, perpixel=False) -> np.ndarray:
+        """
         >>> dataset = get_quick_dataset(inRGB=False)
-        >>> res = Normalization.standardize(dataset)
+        >>> res = Normalization.preprocess_images(dataset, 'standardization')
         >>> a = plt.imshow(res[3, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
         >>> plt.show()
         """
-        return Normalization.center(dataset_X) / np.std(dataset_X, axis=0)
+        centered_data = Normalization.center(dataset_X, perpixel=False)
+        new_data = centered_data / np.std(centered_data, axis=(0, 1, 2))
+
+        return new_data
 
     @staticmethod
     def simplified_whitening(dataset_X: np.ndarray) -> np.ndarray:
-        """
-        Must take in gray img
-        Source: https://medium.com/@dibyadas/visualizing-different-normalization-techniques-84ea5cc8c378
+        #Source: https://medium.com/@dibyadas/visualizing-different-normalization-techniques-84ea5cc8c378
+        """ http://yeephycho.github.io/2016/08/03/normalizations_in_neural_networks/
+        Source :
         >>> dataset = get_quick_dataset(inRGB=False)
-        >>> res = Normalization.simplified_whitening(dataset)
+        >>> res = Normalization.preprocess_images(dataset, 'simplified_whitening')
         >>> a = plt.imshow(res[3, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
         >>> plt.show()
         """
-
-        assert dataset_X.shape[3] == 1, "RGB images are not allowed to be simplified_whiten"
-
-        mean_filter = np.ones((dataset_X.shape[0], 1, 1, 1)) / dataset_X.shape[0]
-        squared_images = tf.nn.conv2d(Normalization.center(dataset_X) ** 2, tf.convert_to_tensor(mean_filter), strides=[1, 1, 1, 1], padding="SAME")
-        standard_deviation = np.sqrt(squared_images.numpy())
-        new_X = Normalization.center(dataset_X) / standard_deviation
-        return new_X
+        centered_data = Normalization.center(dataset_X, perpixel=True)
+        new_data = centered_data / np.std(centered_data, axis=0)
+        return new_data
+        # assert dataset_X.shape[3] == 1, "RGB images are not allowed to be simplified_whiten"
+        #
+        # mean_filter = np.ones((dataset_X.shape[0], 1, 1, 1)) / dataset_X.shape[0]
+        # squared_images = tf.nn.conv2d(Normalization.center(dataset_X, perpixel=True) ** 2, tf.convert_to_tensor(mean_filter), strides=[1, 1, 1, 1], padding="SAME")
+        # standard_deviation = np.sqrt(squared_images.numpy())
+        # new_X = Normalization.center(dataset_X, perpixel=True) / standard_deviation
+        # return new_X
 
 
     @staticmethod
@@ -311,8 +322,41 @@ class Normalization:
         return new_X
 
     @staticmethod
-    def intra_channel_local_response_normalization2(dataset_X: np.ndarray, enableRGB=False, halfsize=2, bias=1,
-                                                   alpha=0.0001, beta=0.5) -> np.ndarray:
-        pass
-        # dataset_X * dataset_X
-        # sizes = input
+    def local_response_norm2(input, size=3, alpha=1, beta=2, k=1):
+        """Applies intra channel LRN
+
+        Est l'exact copié collé de ce code colab par moi
+        https://colab.research.google.com/drive/1SiI7jeOu96eewaQCbvS2gyT8LRtSvlQK?usp=sharing
+        qui marche beaucoup mieux
+
+        Applies local response normalization over an input signal composed of
+        several input planes, where channels occupy the second dimension.
+        Applies normalization across channels.
+        See :class:`~torch.nn.LocalResponseNorm` for details.
+        >>> dataset = get_quick_dataset(inRGB=False)
+        >>> res = Normalization.preprocess_images(dataset, 'LRN')
+        >>> a = plt.imshow(res[3, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
+        >>> plt.show()
+        """
+
+        # input = input.transpose(0, 3, 1, 2)
+        dim = len(input.shape)
+
+        input_tensor = tf.convert_to_tensor(input)
+        if dim < 3:
+            raise ValueError('Expected 3D or higher dimensionality \
+                             input (got {} dimensions)'.format(dim))
+        div = tf.expand_dims((input_tensor * input_tensor), -1)
+
+        sizes = tf.shape(input_tensor)
+        div = tf.cast(div, tf.float32)
+        # div = tf.reshape(div, (sizes[0], 1, sizes[1], sizes[2], -1))
+        # div = tf.reshape(div)
+        # paddings = [[size // 2, (size - 1) // 2], [0, 0], [0, 0]]
+        # div = tf.pad(div, paddings)
+        div = tf.squeeze(tf.nn.avg_pool3d(div, (1, size, size), strides=(1, 1, 1), padding="SAME"), -1)
+        div = tf.cast(div, tf.float64)
+        # div = tf.reshape(div, sizes)
+        div = (div * alpha + k) ** beta
+        res = (tf.cast(input_tensor, tf.float64) / div)  #.transpose(0, 2, 3, 1)
+        return res

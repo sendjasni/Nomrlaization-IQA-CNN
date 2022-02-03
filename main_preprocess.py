@@ -57,20 +57,23 @@ def run(env):
 
     # Preprocessing images (applying [0, 1] scale to img, centering img values, standardizing, etc.)
 
+    plt.imshow(nparray_img[0, :, :, :]); plt.show()
+
     print("Starting patches...")
     patches, mos = Dataset.data_augmentation_patching(nparray_img,
                                                      nb_division=cst.DATA_AUGMENT_FACTOR,
                                                      labels=nparray_label, verbose=True)
     print("Done.")
 
+    print(patches.shape)
+    plt.imshow(patches[0, :, :, :]); plt.show()
 
     print("Starting norm...")
     images = Normalization.preprocess_images(patches, cst.PREPROCESS_IMG)
     print("Done.")
 
     print(images.shape)
-    plt.imshow(images[0,:,:,:])
-    plt.show()
+    plt.imshow(images[0, :, :, :]); plt.show()
 
     print(f"Saving image np.ndarray{images.shape}...")
     if cst.USE_GRAY:

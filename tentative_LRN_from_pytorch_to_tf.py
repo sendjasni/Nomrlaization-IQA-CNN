@@ -13,12 +13,12 @@ import tensorflow as tf
 # tf.nn.avg_pool3d
 
 def local_response_norm(input, size, alpha=1e-4, beta=0.75, k=1):
-    r"""Applies local response normalization over an input signal composed of
+    """Applies local response normalization over an input signal composed of
     several input planes, where channels occupy the second dimension.
     Applies normalization across channels.
     See :class:`~torch.nn.LocalResponseNorm` for details.
     >>> dataset = get_quick_dataset(inRGB=False)
-    >>> res = local_response_norm(dataset)
+    >>> res = local_response_norm(dataset, 7)
     >>> a = plt.imshow(res[3, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
     >>> plt.show()
     """

@@ -4,12 +4,38 @@ import pandas as pd
 import numpy as np
 import keras
 import math
+import scipy.io
 
 
 class Dataset:
 
     @staticmethod
-    def get_dataset_from_csv(csvfilepath: str, database_dir: Path, verbose=False, gray=False):
+    def get_data_from_csv(csvfilepath: str, database_dir: Path, verbose=False, gray=False):
+        nparray_img, nparray_label, dataframe = Dataset.get_CSIQdataset_from_csv(csvfilepath, database_dir, verbose, gray)
+
+        return nparray_img, nparray_label, dataframe
+
+    @staticmethod
+    def get_LIVEdataset_from_csv(matfilepath: str, database_dir: Path, verbose=False, gray=False):
+        mos = scipy.io.loadmat('./database/LIVE2/dmos.mat')
+        matref = scipy.io.loadmat('./database/LIVE2/refnames_all.mat')
+        str_list = []
+        for i_ref in range(len(matref['refnames_all'][0])):
+            img_name = matref['refnames_all'][0][i_ref][0]
+            str_list.append(img_name)
+
+        permut = np.argsort(str_list)
+        pass
+
+    @staticmethod
+    def get_KADIDdataset_from_csv(csvfilepath: str, database_dir: Path, verbose=False, gray=False):
+        dataframe = pd.read_csv(csvfilepath)
+        nb_rows = dataframe.shape[0]
+        for i, row in dataframe.iterrows():
+            img_path = f"{str(database_dir / row['image'])}.{row['dst_type']}.{str(row['dst_lev'])}.png"
+
+    @staticmethod
+    def get_CSIQdataset_from_csv(csvfilepath: str, database_dir: Path, verbose=False, gray=False):
         """Images must be in the name format [photo_name].[distorsion_type].[distorsion_level].png
         >>> DB = Path('./database/CSIQ/dst_imgs')
         >>> csvfile = DB / "csv_datafile" / "CSIQ_DMOS_allAWGN.csv"
