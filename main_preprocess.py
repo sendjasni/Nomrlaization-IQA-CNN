@@ -19,13 +19,14 @@ import matplotlib.pyplot as plt
 from scipy.stats import pearsonr, spearmanr
 
 
-def run(env):
+def run(env, cst=None):
     """Normalization, no shuffle, and patching images"""
 
-    if env == "COLAB":
-        import constants_for_colab as cst
-    elif env == "LOCAL":
+    # Parameters #
+    if env == "LOCAL":
         import constants as cst
+    elif not cst:
+        raise ImportError
 
     # Init
 
@@ -39,25 +40,24 @@ def run(env):
 
     if cst.FIX_RANDOM:
         apply_seed(seed=111)  # Controls and fix the randomness of numpy/python/tensorflow (shuffling, etc.)
-
     # Image read and imageset
 
-    nparray_img, nparray_label, dataframe = Dataset.get_dataset_from_csv(cst.CSV_DATAFILE_DIR / cst.DATAFILE_NAME,
-                                                                         cst.ROOT_DST_IMG, verbose=True, gray=cst.USE_GRAY)
+    nparray_img, nparray_label, dataframe = Dataset.get_dataset_from_csv(cst.DATABASE_NAME, cst.ROOT_DATABASE, verbose=True, gray=cst.USE_GRAY)
 
     originals_names = dataframe['image'].unique()
-    nb_distor = len(dataframe['dst_type'].unique()) * len(dataframe['dst_lev'].unique())
+
     nb_images = nparray_label.size
 
     print(f"Originaux : {originals_names}")
-    print(f"Nb distorsions différentes : {nb_distor}")
 
     # Checking imgs
-    plot_multiple_img(nparray_img)
+    plot_multiple_img(nparray_img, cst.USE_GRAY)
 
     # Preprocessing images (applying [0, 1] scale to img, centering img values, standardizing, etc.)
-
-    plt.imshow(nparray_img[0, :, :, :]); plt.show()
+    if cst.USE_GRAY:
+        plt.imshow(nparray_img[0, :, :, 0]); plt.show()
+    else:
+        plt.imshow(nparray_img[0, :, :, :]); plt.show()
 
     print("Starting patches...")
     patches, mos = Dataset.data_augmentation_patching(nparray_img,
@@ -66,22 +66,28 @@ def run(env):
     print("Done.")
 
     print(patches.shape)
-    plt.imshow(patches[0, :, :, :]); plt.show()
+    if cst.USE_GRAY:
+        plt.imshow(patches[0, :, :, 0]); plt.show()
+    else:
+        plt.imshow(patches[0, :, :, :]); plt.show()
 
     print("Starting norm...")
     images = Normalization.preprocess_images(patches, cst.PREPROCESS_IMG)
     print("Done.")
 
     print(images.shape)
-    plt.imshow(images[0, :, :, :]); plt.show()
+    if cst.USE_GRAY:
+        plt.imshow(patches[0, :, :, 0]); plt.show()
+    else:
+        plt.imshow(patches[0, :, :, :]); plt.show()
 
     print(f"Saving image np.ndarray{images.shape}...")
-    if cst.USE_GRAY:
-        np.save(cst.ROOT_DATABASE / cst.DATABASE_NAME / "normalized_dst_imgs" / f"CSIQ_{cst.PREPROCESS_IMG}_patch{64}_GRAY.npy", images)
-        np.save(cst.ROOT_DATABASE / cst.DATABASE_NAME / "normalized_dst_imgs" / f"CSIQ_{cst.PREPROCESS_IMG}_patch{64}_GRAY_labels.npy", mos)
-    else:
-        np.save(cst.ROOT_DATABASE / cst.DATABASE_NAME / "normalized_dst_imgs" / f"CSIQ_{cst.PREPROCESS_IMG}_patch{64}.npy", images)
-        np.save(cst.ROOT_DATABASE / cst.DATABASE_NAME / "normalized_dst_imgs" / f"CSIQ_{cst.PREPROCESS_IMG}_patch{64}_labels.npy", mos)
+
+    gray_str = '_GRAY' if cst.USE_GRAY else ''
+
+    np.save(cst.ROOT_DATABASE / cst.DATABASE_NAME / "normalized_dst_imgs" / f"{cst.DATABASE_NAME}_{cst.PREPROCESS_IMG}_patch{64}{gray_str}.npy", images)
+    np.save(cst.ROOT_DATABASE / cst.DATABASE_NAME / "normalized_dst_imgs" / f"{cst.DATABASE_NAME}_{cst.PREPROCESS_IMG}_patch{64}{gray_str}_labels.npy", mos)
+
     print("Done.")
 
 

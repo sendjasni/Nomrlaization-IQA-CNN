@@ -9,6 +9,7 @@ from skimage import exposure
 from utiles import *
 from skimage.color import rgb2gray
 from PIL import Image
+import cv2
 
 """
 This class will be used to gather all the normalization techniques that are finalized (Working)
@@ -34,7 +35,7 @@ class Normalization:
         elif normalization_type == 'standardization':
             return Normalization.standardize(dataset_X)
         elif normalization_type == 'DoG':
-            return Normalization.difference_of_gaussian(dataset_X)
+            new_X = Normalization.difference_of_gaussian(dataset_X)
         elif normalization_type == 'LCN':
             new_X = Normalization.local_contrast_norm(dataset_X)
         elif normalization_type == 'LRN':
@@ -43,12 +44,15 @@ class Normalization:
             new_X = Normalization.histogram_equalization(dataset_X)
         elif normalization_type == 'CLAHE':
             new_X = Normalization.CLA_hist_equalization(dataset_X)
+        elif normalization_type == 'low_freq_substraction':
+            new_X = Normalization.low_freq_substraction(dataset_X)
         elif normalization_type == 'ZCAwhiten':
             new_X = Normalization.ZCA_whiten(dataset_X)
         elif normalization_type == 'simplified_whitening':
             new_X = Normalization.simplified_whitening(dataset_X)
         else:
-            print("[preprocess_images()] argument normalization_type not found.")
+            print(f"[preprocess_images()] argument normalization_type ({normalization_type}) not found.")
+            raise ValueError
             return dataset_X
 
         return Normalization.pixel_tight_scaling(new_X)
@@ -131,8 +135,9 @@ class Normalization:
         >>> a = plt.imshow(res[3, :, :, :].astype(float)); a = plt.axis('off');
         >>> plt.show()
         """
-        dataset_X = Normalization.pixel_tight_scaling(dataset_X)
-        return dataset_X - np.mean(dataset_X, axis=(0, 1, 2))
+        # dataset_X = Normalization.pixelsScalling(dataset_X)
+        dataset_X = Normalization.pixel_tight_scaling(dataset_X) - np.mean(dataset_X, axis=(0, 1, 2))
+        return dataset_X
 
     @staticmethod
     def standardize(dataset_X: np.ndarray, perpixel=False) -> np.ndarray:
@@ -203,9 +208,9 @@ class Normalization:
     @staticmethod
     def difference_of_gaussian(dataset_X: np.ndarray, sigma1: float = 1, sigma2: float = 2) -> np.ndarray:
         """
-        >>> dataset = get_quick_dataset(inRGB=False)
-        >>> res = Normalization.difference_of_gaussian(dataset)
-        >>> a = plt.imshow(res[1, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
+        >>> dataset = get_quick_dataset(inRGB=False)/255
+        >>> res = Normalization.preprocess_images(dataset, normalization_type='DoG')
+        >>> a = plt.imshow(res[0, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
         >>> plt.show()
         """
 
@@ -218,10 +223,41 @@ class Normalization:
         return dataset_X
 
     @staticmethod
-    def local_contrast_norm(dataset_X: np.ndarray, mean_scalar=1.0, enableRGB=False) -> np.ndarray:
+    def low_freq_substraction(dataset_X: np.ndarray, sigma1: float = 1, sigma2: float = 2) -> np.ndarray:
+        """
+        >>> dataset = get_quick_dataset(inRGB=False)[:, :384, :, :]
+        >>> a = plt.imshow(dataset[0, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
+        >>> plt.show()
+        >>> res = Normalization.preprocess_images(dataset, normalization_type='low_freq_substraction')
+        >>> a = plt.imshow(res[0, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
+        >>> plt.show()
+        """
+
+        assert (dataset_X.shape[3] == 1), "Low freq substraction must be used for grayscale"
+        tensor_X = tf.convert_to_tensor(dataset_X)
+
+        for i in range(tensor_X.shape[0]):
+            image = tensor_X[i, :, :, 0]
+            image = tf.cast(image, tf.float32)
+            # image = tf.image.rgb_to_grayscale(image)  # quoi qu-il arrive on veut faire du gaussian filter sur du gris
+            image_low = gaussian_filter(image, 7 / 6)
+            # print(image.shape, image_low.shape)
+            image_low = cv2.resize(image_low, (image_low.shape[1]//4, image_low.shape[0]//4), interpolation=cv2.INTER_CUBIC)
+            # open cv prend (width, height) il faut croire
+            # print(image.shape, image_low.shape)
+            # image_low = rescale(image_low, 1 / 4, method=tf.image.ResizeMethod.BICUBIC)
+            image_low = cv2.resize(image_low, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_CUBIC)
+            # image_low = tf.image.resize(image_low, size=image_shape(image), method=tf.image.ResizeMethod.BICUBIC)
+            # print(image.shape, image_low.shape)
+            dataset_X[i, :, :, 0] = image - tf.cast(image_low, image.dtype)
+
+        return dataset_X
+
+    @staticmethod
+    def local_contrast_norm_old(dataset_X: np.ndarray, mean_scalar=1.0, enableRGB=False) -> np.ndarray:
         """
         >>> dataset = get_quick_dataset(inRGB=False)
-        >>> res = Normalization.local_contrast_norm(dataset)
+        >>> res = Normalization.local_contrast_norm_old(dataset)
         >>> a = plt.imshow(res[3, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
         >>> plt.show()
         """
@@ -242,6 +278,33 @@ class Normalization:
             locally_sqrt = locally_sqrt * np.greater(locally_sqrt - thresh.reshape(-1, 1), 0)
             locally_sqrt += 1.0 * np.equal(locally_sqrt, 0.0)
             new_X[i_img, :, :, 0] = locally_centered / locally_sqrt  # surement [i_img, :, :, :] si rgb
+        return new_X
+
+    @staticmethod
+    def local_contrast_norm(dataset_X: np.ndarray, P=3, Q=3, C=1) -> np.ndarray:
+        """
+        >>> dataset = get_quick_dataset(inRGB=False)
+        >>> a = plt.imshow(dataset[3, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
+        >>> plt.show()
+        >>> res = Normalization.local_contrast_norm(dataset)
+        >>> a = plt.imshow(res[3, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
+        >>> plt.show()
+        """
+
+        new_X = np.zeros(dataset_X.shape)
+        kernel = np.ones((P, Q)) / (P * Q)
+
+        for i_img in range(dataset_X.shape[0]):
+            # for i_canal in range(dataset_X.shape[3])
+            X = dataset_X[i_img, :, :, 0]
+            if X.ndim != 2:
+                raise ValueError("Input must be a 2D matrix.")
+
+            img_mean = signal.convolve2d(X, kernel, boundary='symm', mode='same')
+            img_sm = signal.convolve2d(np.square(X), kernel, boundary='symm', mode='same')
+            img_std = np.sqrt(np.maximum(img_sm - np.square(img_mean), 0)) + C
+            img_ln = (X - img_mean) / img_std
+            new_X[i_img, :, :, 0] = img_ln
         return new_X
 
     @staticmethod

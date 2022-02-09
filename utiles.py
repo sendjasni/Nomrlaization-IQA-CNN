@@ -98,12 +98,15 @@ def plot_one_img(nparray_img: np.ndarray, i_img: int):
     plt.imshow(nparray_img[i_img, :, :, :].astype(int), interpolation='nearest')
 
 
-def plot_multiple_img(nparray_img: np.ndarray):
+def plot_multiple_img(nparray_img: np.ndarray, use_gray):
     fig = plt.figure(figsize=(30, 30))  # width, height in inches
     plt.gca().axis('off')
     for i in range(15):
         sub = fig.add_subplot(1, 15, i + 1)
-        sub.imshow(nparray_img[i, :, :, :].astype(int), interpolation='nearest')
+        if use_gray:
+            sub.imshow(nparray_img[i, :, :, 0].astype(int), interpolation='nearest')
+        else:
+            sub.imshow(nparray_img[i, :, :, :].astype(int), interpolation='nearest')
     plt.show()
 
 
