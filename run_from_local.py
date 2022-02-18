@@ -1,13 +1,23 @@
-from constants import *
+import constants as cst
 import main
 import main_preprocess
 import main_load_preprocess_LIVE
 import main_train_from_npy
+import main_train_from_npy_LIVE
 
 env = 'LOCAL'
 
-# main.run(env)
-# main_preprocess.run(env)
-main_load_preprocess_LIVE.run(env)
-# main_train_from_npy.run(env)
+# main.run(env, cst)
+
+# if cst.DATABASE_NAME == "LIVE2":
+#     main_load_preprocess_LIVE.run(env, cst)
+# else:
+main_preprocess.run(env, cst)
+
+# if cst.DATABASE_NAME == "LIVE2":
+#     main_train_from_npy_LIVE.run(env, cst)
+# else:
+# main_train_from_npy.run(env, cst)
+
+
 

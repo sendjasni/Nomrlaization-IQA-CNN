@@ -12,6 +12,8 @@ import keras
 import matplotlib.pyplot as plt
 from pathlib import Path
 
+# Internal
+from dataset import Dataset
 
 class TimingCallback(tf.keras.callbacks.Callback):
     def __init__(self, logs={}):
@@ -24,7 +26,7 @@ class TimingCallback(tf.keras.callbacks.Callback):
         self.logs.append(timer() - self.starttime)
 
 
-def create_callbacks_fun(log_dir: Path, weights_dir: Path, fold_no, save_name='tmp', early_stop_bool=True):
+def create_callbacks_fun(log_dir: Path, weights_dir: Path, fold_no, save_name='tmp', early_stop_bool=True, patience=30, save_weights=False):
     # log_file = log_dir / ('Fold_' + str(fold_no) + '.log')
     log_file = log_dir / (save_name + '.log')
 
@@ -33,26 +35,20 @@ def create_callbacks_fun(log_dir: Path, weights_dir: Path, fold_no, save_name='t
 
     filepath = weights_dir / (save_name + '.hdf5')
 
-    checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor="val_loss", mode="min",
-                                                    save_best_only=True, save_weights_only=True, save_freq='epoch',
-                                                    verbose=1)
-
     train_tile_cb = TimingCallback()
 
+    callbacks = [csv_loger,
+                 train_tile_cb]
+
     if early_stop_bool:
-        early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', mode='min', patience=30, restore_best_weights=True)
-        callbacks = [
-            csv_loger,
-            # checkpoint,
-            train_tile_cb,
-            early_stop
-        ]
-    else:
-        callbacks = [
-            csv_loger,
-            # checkpoint,
-            train_tile_cb
-        ]
+        early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', mode='min', patience=patience, restore_best_weights=True)
+        callbacks.append(early_stop)
+
+    if save_weights:
+        checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor="val_loss", mode="min",
+                                                        save_best_only=True, save_weights_only=True, save_freq='epoch',
+                                                        verbose=1)
+        callbacks.append(checkpoint)
 
     return callbacks
 
@@ -94,6 +90,16 @@ def apply_seed(seed: int):
     tf.random.set_seed(seed)
 
 
+def plot10Images(images_arr):  # images_arr de 10 images
+    fig, axes = plt.subplots(1, 10, figsize=(20, 20))
+    axes = axes.flatten()
+    for img, ax in zip(images_arr, axes):
+        ax.imshow(img)
+        ax.axis('off')
+    plt.tight_layout()
+    plt.show()
+
+
 def plot_one_img(nparray_img: np.ndarray, i_img: int):
     plt.imshow(nparray_img[i_img, :, :, :].astype(int), interpolation='nearest')
 
@@ -128,6 +134,20 @@ def preprocessing_images(nparray_img: np.ndarray, preprocessing_type: str):
     #   img_tmp = nparray_img[i,:,:,:]
 
     #   nparray_img[i,:,:,:] = img_tmp
+
+
+def triplicate_gray_channel(dataset_X: np.ndarray) -> np.ndarray:
+    """
+    >>> dataset = get_quick_dataset(inRGB=False)
+    >>> print(dataset.shape)
+    (4, 512, 512, 1)
+    >>> dataset = triplicate_gray_channel(dataset)
+    >>> print(dataset.shape)
+    (4, 512, 512, 3)
+    """
+    # dataset_X = np.stack((dataset_X[:, :, :, 0],)*3, axis=3)
+    dataset_X = np.stack((dataset_X.squeeze(3),)*3, axis=3)
+    return dataset_X
 
 
 def save_perf_save_plot(fig, predictions: np.ndarray, test_mos: np.ndarray, dir_path: Path, name: str = 'default'):

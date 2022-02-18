@@ -44,11 +44,11 @@ def run(env, cst=None):
 
     nparray_img, nparray_label, dataframe = Dataset.get_dataset_from_csv(cst.DATABASE_NAME, cst.ROOT_DATABASE, verbose=True, gray=cst.USE_GRAY)
 
-    originals_names = dataframe['image'].unique()
+    # originals_names = dataframe['image'].unique()
 
     nb_images = nparray_label.size
 
-    print(f"Originaux : {originals_names}")
+    # print(f"Originaux : {originals_names}")
 
     # Checking imgs
     plot_multiple_img(nparray_img, cst.USE_GRAY)

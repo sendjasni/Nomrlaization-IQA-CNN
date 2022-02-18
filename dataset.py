@@ -24,7 +24,10 @@ class Dataset:
         #     nparray_img, nparray_label, dataframe = Dataset.get_KADIDdataset_from_csv(database_dir / database_name,
         #                                                                               verbose, gray)
         elif database_name == 'LIVE2':
-            nparray_img, nparray_label, dataframe = Dataset.get_LIVEdataset_from_csv(database_dir / database_name,
+            nparray_img, nparray_label, dataframe = Dataset.get_LIVEdataset_from_csv_crop(database_dir / database_name,
+                                                                                     verbose, gray)
+        elif database_name == 'CLIVE':
+            nparray_img, nparray_label, dataframe = Dataset.get_CLIVEdataset_from_csv_crop(database_dir / database_name,
                                                                                      verbose, gray)
         else:
             raise Exception(f'database "{database_name}" not found')
@@ -98,7 +101,7 @@ class Dataset:
         for i, row in dataframe.iterrows():
             img_path = database_dir / row['dir'] / row['filename']
             h, w = Image.open(img_path).size
-            nb_patches_tmp = ((h // patch_shape[0])*(w // patch_shape[1]))
+            nb_patches_tmp = ((h // patch_shape[0]) * (w // patch_shape[1]))
             nb_patches += nb_patches_tmp
 
         # nparray_img = np.empty((nb_rows, 512, 768, 3)) if not gray else np.empty((nb_rows, 512, 768, 1))
@@ -114,23 +117,26 @@ class Dataset:
                 img_path, color_mode="grayscale")
             img_np = keras.preprocessing.image.img_to_array(img_PIL)
 
-            if i==0:
+            if i == 0:
                 print(f"Ploting : {img_path}")
-                plt.imshow(img_np, cmap='gray'); plt.show()
+                plt.imshow(img_np, cmap='gray');
+                plt.show()
 
             patches_of_img = Dataset.crop_any_img_in_patches(img_np, patch_shape=patch_shape)
             nb_patches_of_img = patches_of_img.shape[0]
-            nparray_patches[index_nparray:index_nparray+nb_patches_of_img, :, :, :] = patches_of_img
+            nparray_patches[index_nparray:index_nparray + nb_patches_of_img, :, :, :] = patches_of_img
 
-            if i==0:
-                plt.imshow(patches_of_img[0,:,:,:], cmap='gray'); plt.show()
+            if i == 0:
+                plt.imshow(patches_of_img[0, :, :, :], cmap='gray');
+                plt.show()
 
             # print(f"img[{i}] shape={img_np.shape}")
 
             # nparray_patches[i, :, :, :] = img_np
             #
             quality_score = np.array([row['dmos']])
-            nparray_label[index_nparray:index_nparray+nb_patches_of_img, 0, 0, 0] = np.repeat(quality_score, nb_patches_of_img)
+            nparray_label[index_nparray:index_nparray + nb_patches_of_img, 0, 0, 0] = np.repeat(quality_score,
+                                                                                                nb_patches_of_img)
 
             index_nparray += nb_patches_of_img
 
@@ -142,6 +148,134 @@ class Dataset:
         nparray_label = nparray_label / 100  # format du dmos de LIVE2 : bon[0;100]mauvais
         # return nparray_patches, nparray_label, dataframe
         return nparray_patches, nparray_label, dataframe
+
+    @staticmethod
+    def center_crop(img, dim):
+
+        width, height = img.shape[1], img.shape[0]
+        w, h = dim[1], dim[0]
+
+        # process crop width and height for max available dimension
+        crop_width = w if w < img.shape[1] else img.shape[1]
+        crop_height = h if h < img.shape[0] else img.shape[0]
+        print(f"crop img {img.shape} to {(crop_height, crop_width)}")
+        mid_x, mid_y = int(width / 2), int(height / 2)
+        print(f"{mid_x} ; {mid_y}")
+        cw2, ch2 = int(crop_width / 2), int(crop_height / 2)
+        print(f"{ch2} ; {cw2}")
+        crop_img = img[mid_y - ch2:mid_y + ch2, mid_x - cw2:mid_x + cw2]
+        return crop_img
+
+    @staticmethod
+    def get_LIVEdataset_from_csv_crop(database_dir: Path, verbose=False, gray=False):
+        """
+        >>> DB = Path('./database/')
+        >>> nparray_img, nparray_label, dataframe = Dataset.get_dataset_from_csv('LIVE2', DB, verbose=True, gray=False)
+        """
+        MOSFILE_NAME = "dmos.csv"
+
+        dataframe = pd.read_csv(database_dir / MOSFILE_NAME)
+        nb_rows = dataframe.shape[0]
+
+        min_width = math.inf
+        min_height = math.inf
+        for i, row in dataframe.iterrows():
+            img_path = database_dir / row['dir'] / row['filename']
+            w, h = Image.open(img_path).size
+            min_height = h if h < min_height else min_height
+            min_width = w if w < min_width else min_width
+
+        print(f"Post boucle : mh={min_height}, mw={min_width}")
+
+        min_width = min_width - (min_width % 64)
+        min_height = min_height - (min_height % 64)
+
+        print(f"Final (multiple de 64) : mh={min_height}, mw={min_width}")
+
+        nparray_img = np.empty((nb_rows, min_height, min_width, 3)) if not gray else np.empty(
+            (nb_rows, min_height, min_width, 1))
+        nparray_label = np.empty((nb_rows, 1, 1, 1))
+
+        for i, row in dataframe.iterrows():
+            if verbose and i % (nb_rows // 10) == 0: print(f"loading database {i + 1}/{nb_rows}...")
+            img_path = database_dir / row['dir'] / row['filename']
+            img_PIL = keras.preprocessing.image.load_img(img_path) if not gray else keras.preprocessing.image.load_img(
+                img_path, color_mode="grayscale")
+            img_np = keras.preprocessing.image.img_to_array(img_PIL)
+            img_np = Dataset.center_crop(img_np, (min_height, min_width))
+
+            if i == 0:
+                print(f"Ploting : {img_path}")
+                plt.imshow(img_np, cmap='gray');
+                plt.show()
+
+            nparray_img[i, :, :, :] = img_np
+
+            quality_score = np.array([row['dmos']])
+            nparray_label[i, 0, 0, 0] = quality_score
+
+        if verbose:
+            print(f"Shape du tensor d'images : {nparray_img.shape}")
+            print(f"shape des labels correspondants : {nparray_label.shape}")
+
+        nparray_label = nparray_label / 100  # format du dmos de LIVE2 : bon[0;100]mauvais
+        return nparray_img, nparray_label, dataframe
+
+
+    @staticmethod
+    def get_CLIVEdataset_from_csv_crop(database_dir: Path, verbose=False, gray=False):
+        """
+        >>> DB = Path('./database/')
+        >>> nparray_img, nparray_label, dataframe = Dataset.get_dataset_from_csv('CLIVE', DB, verbose=True, gray=False)
+        """
+        MOSFILE_NAME = "mos.csv"
+
+        dataframe = pd.read_csv(database_dir / MOSFILE_NAME)
+        nb_rows = dataframe.shape[0]
+
+        min_width = math.inf
+        min_height = math.inf
+        for i, row in dataframe.iterrows():
+            img_path = database_dir / row['dir'] / row['filename']
+            w, h = Image.open(img_path).size
+            min_height = h if h < min_height else min_height
+            min_width = w if w < min_width else min_width
+
+        print(f"Post boucle : mh={min_height}, mw={min_width}")
+
+        min_width = min_width - (min_width % 64)
+        min_height = min_height - (min_height % 64)
+
+        print(f"Final (multiple de 64) : mh={min_height}, mw={min_width}")
+
+        nparray_img = np.empty((nb_rows, min_height, min_width, 3)) if not gray else np.empty(
+            (nb_rows, min_height, min_width, 1))
+        nparray_label = np.empty((nb_rows, 1, 1, 1))
+
+        for i, row in dataframe.iterrows():
+            if verbose and i % (nb_rows // 10) == 0: print(f"loading database {i + 1}/{nb_rows}...")
+            img_path = database_dir / row['dir'] / row['filename']
+            img_PIL = keras.preprocessing.image.load_img(img_path) if not gray else keras.preprocessing.image.load_img(
+                img_path, color_mode="grayscale")
+            img_np = keras.preprocessing.image.img_to_array(img_PIL)
+            img_np = Dataset.center_crop(img_np, (min_height, min_width))
+
+            if i == 0:
+                print(f"Ploting : {img_path}")
+                plt.imshow(img_np, cmap='gray');
+                plt.show()
+
+            nparray_img[i, :, :, :] = img_np
+
+            quality_score = np.array([row['mos']])
+            nparray_label[i, 0, 0, 0] = quality_score
+
+        if verbose:
+            print(f"Shape du tensor d'images : {nparray_img.shape}")
+            print(f"shape des labels correspondants : {nparray_label.shape}")
+
+        nparray_label = nparray_label / 100  # format du mos de CLIVE : mauvais[0;100]bon
+        return nparray_img, nparray_label, dataframe
 
     @staticmethod
     def get_TIDdataset_from_csv(database_dir: Path, verbose=False, gray=False):
@@ -225,6 +359,97 @@ class Dataset:
 
         return nparray_img, nparray_label, dataframe
 
+    # def create_dst_slice_points_obsolete(dataframe: pd.DataFrame, testing_slice: list[float], nb_patch_per_dst):
+    @staticmethod
+    def create_dst_slice_points_obsolete(dataframe, testing_slice, nb_patch_per_dst):
+        """dataframe['image'] contient le nom des images sources des dst
+        >>> import constants as cst
+        >>> pathcsv = cst.ROOT_DATABASE / "CSIQ" / "CSIQ_DMOS.csv"
+        >>> df = pd.read_csv(pathcsv)
+        >>> dst_points = Dataset.create_dst_slice_points_obsolete(df, [0.2, 0.4], 64)
+        >>> print(dst_points)
+        """
+
+        u_names = pd.unique(dataframe['image'])
+        print(u_names)
+        print(pd.Series(dataframe['image']).value_counts())
+        u_names_count = list(dataframe['image'].value_counts())
+        print(u_names_count)
+
+        # Split testing_slice and train #
+
+        # uniquesFIRST = np.arange(imgs.shape[0] / nb_dst_from_one_src, dtype=int)  # Obsolete, voire au dessus
+        uniques = np.arange(len(u_names), dtype=int)
+
+        uniques_slice_points = np.array(
+            [round(len(uniques) * testing_slice[0]), round(len(uniques) * testing_slice[1])])
+
+        # dst_slice_pointsFIRST = uniques_slice_points * nb_dst_from_one_src  # Obsolete, voire au dessus
+        # dst_slice_points = np.array([sum(u_names_count[:uniques_slice_points[0]]) * nb_patch_per_dst, sum(
+        #     u_names_count[:uniques_slice_points[1]]) * nb_patch_per_dst])  # Tentative sans magic number
+
+        print(u_names_count[:uniques_slice_points[0]])
+        dst_slice_points = np.array([sum(u_names_count[:uniques_slice_points[0]]), sum(
+            u_names_count[:uniques_slice_points[1]])])  # Tentative sans magic number
+        print(dst_slice_points)
+
+        patches_slices_points = dst_slice_points * nb_patch_per_dst
+        print(patches_slices_points)
+
+        return dst_slice_points
+
+    # def create_dst_slice_points(dataframe: pd.DataFrame, testing_slice: list[float], all_labels: np.ndarray):
+    @staticmethod
+    def create_dst_slice_points(dataframe, testing_slice, all_labels):
+        """dataframe['image'] contient le nom des images sources des dst
+        >>> import constants as cst
+        >>> pathcsv = cst.ROOT_DATABASE / "CSIQ" / "CSIQ_DMOS.csv"
+        >>> df = pd.read_csv(pathcsv)
+        >>> path_label = cst.ROOT_DATABASE / "CSIQ" / "normalized_dst_imgs" / "CSIQ_nothing_patch64_labels.npy"
+        >>> labels = np.load(path_label)
+        >>> labels = np.squeeze(labels)
+        >>> dst_points = Dataset.create_dst_slice_points(df, [0.2, 0.4], labels)
+        >>> print(dst_points)
+        """
+
+        u_names = pd.unique(dataframe['image'])
+        u_names_count = list(dataframe['image'].value_counts())
+
+        u_labels, u_patches_count = np.unique(all_labels, return_counts=True)
+        u_labels = pd.unique(all_labels)
+        u_patches_count = list(pd.Series(all_labels).value_counts())
+        print("df shape + all labels shape", dataframe.shape, all_labels.shape)
+
+        # Split testing_slice and train #
+
+        # uniquesFIRST = np.arange(imgs.shape[0] / nb_dst_from_one_src, dtype=int)  # Obsolete, voire au dessus
+        uniques = np.arange(len(u_names), dtype=int)
+
+        u_slice_points = np.array(
+            [round(len(uniques) * testing_slice[0]), round(len(uniques) * testing_slice[1])])
+
+        # dst_slice_pointsFIRST = u_slice_points * nb_dst_from_one_src  # Obsolete, voire au dessus
+        dst_slice_points = np.array([sum(u_names_count[:u_slice_points[0]]), sum(
+            u_names_count[:u_slice_points[1]])])  # Tentative sans magic number
+
+        print("u_names_count", u_names_count)
+        print("u_names_count first slice", u_names_count[:u_slice_points[0]])
+        print(f"dst_slice_points {dst_slice_points}")
+        print(f"all patches({len(all_labels)}) {all_labels[:100]}")
+        print(f"all uniques patches({len(u_labels)}) {u_labels}")
+        print(f"u_patches_count {u_patches_count}")
+
+        patches_slices_points = np.array([sum(u_names_count[:dst_slice_points[0]]), sum(
+            u_names_count[:dst_slice_points[1]])])  # Tentative sans magic number
+        print(f"patches slices {patches_slices_points}")
+
+        # patches_slices_points = np.array([
+        #     sum(u_names_count[:u_slice_points[0]] * u_patches_count[:dst_slice_points[0]]),
+        #     sum(u_names_count[:u_slice_points[1]] * u_patches_count[:dst_slice_points[1]])
+        #     ])
+
+        return patches_slices_points
+
     @staticmethod
     def convert_permutoriginals_to_permutlabels(permut_originaux: np.ndarray, nb_distor: int):
         """A partir d'une permutation pour les classes uniques et du nombre de distorsions que subira chacune
@@ -283,11 +508,11 @@ class Dataset:
     def data_augmentation_patching(dataset_X: np.ndarray, nb_division: Tuple[int, int], labels: np.ndarray = None,
                                    verbose=False):
         """
-        >>> dataset = get_quick_dataset(inRGB=False)[0:2, :384, :, :].astype(int)
+        >>> dataset = get_quick_dataset(inRGB=False)[0:2, :, :, :].astype(int)
         >>> print(dataset.shape)
-        (2, 384, 512, 1)
+        (2, 512, 512, 1)
         >>> a = plt.imshow(dataset[0, :, :, 0]); plt.show()
-        >>> dataset = Dataset.data_augmentation_patching(dataset, nb_division=(6, 8))
+        >>> dataset = Dataset.data_augmentation_patching(dataset, nb_division=(8, 8))
         >>> a = plt.imshow(dataset[0, :, :, 0]); plt.show()
         >>> a = plt.imshow(dataset[1, :, :, 0]); plt.show()
         """
@@ -321,8 +546,8 @@ class Dataset:
             for x in rangex:
                 for y in rangey:
                     new_patch = dataset_X[i_img, y:y + patch_shape[0], x:x + patch_shape[1], :]
-                    assert (new_patch.shape != (64, 64, 1) and new_patch.shape != (64, 64, 3)), ...
-                    f"New patch error shape : {new_patch.shape} with i_img={i_img}; x={x}; y={y} "
+                    assert (new_patch.shape == (64, 64, 1) or new_patch.shape == (64, 64, 3)), \
+                        f"New patch error shape : {new_patch.shape} with i_img={i_img}; x={x}; y={y} "
 
                     i_x = x // patch_shape[1]
                     i_y = y // patch_shape[0]

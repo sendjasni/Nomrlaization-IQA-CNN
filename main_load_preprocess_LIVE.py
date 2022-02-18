@@ -34,7 +34,7 @@ def run(env, cst=None):
     if cst.FIX_RANDOM:
         apply_seed(seed=111)  # Controls and fix the randomness of numpy/python/tensorflow (shuffling, etc.)
 
-    all_patches, all_labels, df = Dataset.get_LIVEdataset_from_csv(cst.ROOT_DATABASE / cst.DATABASE_NAME, verbose=True, gray=True)
+    all_patches, all_labels, df = Dataset.get_LIVEdataset_from_csv(cst.ROOT_DATABASE / cst.DATABASE_NAME, verbose=True, gray=cst.USE_GRAY)
 
     plt.imshow(all_patches[96+0, :, :, :], cmap='gray'); plt.show()
     plt.imshow(all_patches[96+1, :, :, :], cmap='gray'); plt.show()

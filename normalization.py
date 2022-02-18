@@ -31,7 +31,8 @@ class Normalization:
         elif normalization_type == 'centering':
             return Normalization.center(dataset_X)
         elif normalization_type == 'centering_reduced':
-            return Normalization.center_reduced(dataset_X)
+            return Normalization.test_RAM_center_reduced(dataset_X)
+            # return Normalization.center_reduced(tf.convert_to_tensor(dataset_X)).numpy()
         elif normalization_type == 'standardization':
             return Normalization.standardize(dataset_X)
         elif normalization_type == 'DoG':
@@ -39,13 +40,13 @@ class Normalization:
         elif normalization_type == 'LCN':
             new_X = Normalization.local_contrast_norm(dataset_X)
         elif normalization_type == 'LRN':
-            new_X = Normalization.local_response_norm2(dataset_X)
+            new_X = Normalization.local_response_norm3(dataset_X)
         elif normalization_type == 'histogram_eq':
             new_X = Normalization.histogram_equalization(dataset_X)
         elif normalization_type == 'CLAHE':
             new_X = Normalization.CLA_hist_equalization(dataset_X)
         elif normalization_type == 'low_freq_substraction':
-            new_X = Normalization.low_freq_substraction(dataset_X)
+            new_X = Normalization.low_freq_substraction2(dataset_X)
         elif normalization_type == 'ZCAwhiten':
             new_X = Normalization.ZCA_whiten(dataset_X)
         elif normalization_type == 'simplified_whitening':
@@ -136,13 +137,56 @@ class Normalization:
         >>> plt.show()
         """
         # dataset_X = Normalization.pixelsScalling(dataset_X)
-        dataset_X = Normalization.pixel_tight_scaling(dataset_X) - np.mean(dataset_X, axis=(0, 1, 2))
+        print("calcul min max mean...")
+        dataset_max = tf.reduce_max(dataset_X)
+        dataset_min = tf.reduce_min(dataset_X)
+        dataset_mean = tf.reduce_mean(dataset_X, axis=(0, 1, 2))
+        print(f"juste avant norm... (datasetmean.shape = {dataset_mean})")
+        dataset_X = np.nan_to_num((dataset_X - dataset_min) / (dataset_max - dataset_min)) - dataset_mean
+        print("juste apres norm")
+        return dataset_X
+
+    @staticmethod
+    def test_RAM_center_reduced(dataset_X: np.ndarray) -> np.ndarray:
+        """
+        Centering data between -1 and 1
+        >>> dataset = get_quick_dataset(inRGB=True).astype(float)
+        >>> res = Normalization.preprocess_images(dataset, 'centering_reduced')
+        >>> a = plt.imshow(res[3, :, :, :].astype(float)); a = plt.axis('off');
+        >>> plt.show()
+        """
+        # dataset_X = Normalization.pixelsScalling(dataset_X)
+        # print("calcul min max mean...")
+        dataset_max = np.amax(dataset_X)
+        dataset_min = np.amin(dataset_X)
+        dataset_mean = np.mean(dataset_X, axis=(0, 1, 2))
+        # print(f"mean={dataset_mean}")
+        dataset_mean = (dataset_mean - dataset_min)/(dataset_max - dataset_min)
+        step = math.ceil(dataset_X.shape[0]/10)
+        my_range = np.arange(0, dataset_X.shape[0], step)
+        # print(f"juste avant norm... min={dataset_min} max={dataset_max} mean={dataset_mean}")
+        for i_window in my_range:
+            # truc = dataset_X[i_window:(i_window + step), :, :, :]
+            # print(f"from dataset_X[{i_window}:{(i_window+step)}]")
+            # print(f"1min {np.amin(truc)} then {np.amin(truc - dataset_min)}")
+            # print(f"2range {np.amax(truc) - np.amin(truc)} then {np.amax(truc/(dataset_max - dataset_min)) - np.amin(truc/(dataset_max - dataset_min))}")
+            # print(f"3mean {np.mean(truc)} then {np.mean((truc/(dataset_max - dataset_min))-dataset_mean)}")
+            dataset_X[i_window:(i_window+step), :, :, :] = np.nan_to_num((dataset_X[i_window:(i_window+step), :, :, :] - dataset_min) / (dataset_max - dataset_min)) - dataset_mean
+        # if dataset_X.shape[0] - my_range[-1]:
+        #     print(f"from dataset_X[{my_range[-1]}:{(my_range[-1]+step)}]")
+        #     dataset_X[my_range[-1]:(my_range[-1]+step), :, :, :] = np.nan_to_num((dataset_X[my_range[-1]:(my_range[-1]+step), :, :, :] - dataset_min) / (dataset_max - dataset_min)) - dataset_mean
+        #     # pas grave si on dépasse d'un np.ndarray, il prend ce qu'il peut
+
+        # print(f"Finally : min={np.amin(dataset_X)} max={np.amax(dataset_X)} mean={np.mean(dataset_X, axis=(0, 1, 2))}")
+        # print("juste apres norm")
         return dataset_X
 
     @staticmethod
     def standardize(dataset_X: np.ndarray, perpixel=False) -> np.ndarray:
         """
         >>> dataset = get_quick_dataset(inRGB=False)
+        >>> a = plt.imshow(dataset[3, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
+        >>> plt.show()
         >>> res = Normalization.preprocess_images(dataset, 'standardization')
         >>> a = plt.imshow(res[3, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
         >>> plt.show()
@@ -209,6 +253,8 @@ class Normalization:
     def difference_of_gaussian(dataset_X: np.ndarray, sigma1: float = 1, sigma2: float = 2) -> np.ndarray:
         """
         >>> dataset = get_quick_dataset(inRGB=False)/255
+        >>> a = plt.imshow(dataset[0, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
+        >>> plt.show()
         >>> res = Normalization.preprocess_images(dataset, normalization_type='DoG')
         >>> a = plt.imshow(res[0, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
         >>> plt.show()
@@ -250,6 +296,37 @@ class Normalization:
             # image_low = tf.image.resize(image_low, size=image_shape(image), method=tf.image.ResizeMethod.BICUBIC)
             # print(image.shape, image_low.shape)
             dataset_X[i, :, :, 0] = image - tf.cast(image_low, image.dtype)
+
+        return dataset_X
+
+
+    @staticmethod
+    def low_freq_substraction2(dataset_X: np.ndarray, sigma1: float = 1, sigma2: float = 2) -> np.ndarray:
+        """
+        >>> dataset = get_quick_dataset(inRGB=False)[:, :384, :, :]
+        >>> a = plt.imshow(dataset[0, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
+        >>> plt.show()
+        >>> res = Normalization.preprocess_images(dataset, normalization_type='low_freq_substraction')
+        >>> a = plt.imshow(res[0, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
+        >>> plt.show()
+        """
+
+        assert (dataset_X.shape[3] == 1), "Low freq substraction must be used for grayscale"
+
+        for i in range(dataset_X.shape[0]):
+            image = dataset_X[i, :, :, 0]
+            image = image.astype(np.float32)
+            # image = tf.image.rgb_to_grayscale(image)  # quoi qu-il arrive on veut faire du gaussian filter sur du gris
+            image_low = gaussian_filter(image, 7 / 6)
+            # print(image.shape, image_low.shape)
+            image_low = cv2.resize(image_low, (image_low.shape[1]//4, image_low.shape[0]//4), interpolation=cv2.INTER_CUBIC)
+            # open cv prend (width, height) il faut croire
+            # print(image.shape, image_low.shape)
+            # image_low = rescale(image_low, 1 / 4, method=tf.image.ResizeMethod.BICUBIC)
+            image_low = cv2.resize(image_low, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_CUBIC)
+            # image_low = tf.image.resize(image_low, size=image_shape(image), method=tf.image.ResizeMethod.BICUBIC)
+            # print(image.shape, image_low.shape)
+            dataset_X[i, :, :, 0] = image - image_low.astype(image.dtype)
 
         return dataset_X
 
@@ -370,7 +447,7 @@ class Normalization:
         >>> a = plt.imshow(res[3, :, :, :], cmap="gray"); a = plt.axis('off'); a = plt.colorbar()
         >>> plt.show()
         """
-        new_X = np.zeros(dataset_X.shape)
+        # new_X = np.zeros(dataset_X.shape)
 
         probs = [1 for z in range(-halfsize, halfsize + 1)]
         sum_kernel = np.outer(probs, probs)
@@ -380,9 +457,9 @@ class Normalization:
 
             imgsquare = img ** 2
 
-            new_X[i_img, :, :, 0] = 1 / (bias + (alpha * signal.convolve2d(imgsquare, sum_kernel, mode='same', boundary='symm')) ** beta)
+            dataset_X[i_img, :, :, 0] = 1 / (bias + (alpha * signal.convolve2d(imgsquare, sum_kernel, mode='same', boundary='symm')) ** beta)
 
-        return new_X
+        return dataset_X
 
     @staticmethod
     def local_response_norm2(input, size=3, alpha=1, beta=2, k=1):
@@ -422,4 +499,92 @@ class Normalization:
         # div = tf.reshape(div, sizes)
         div = (div * alpha + k) ** beta
         res = (tf.cast(input_tensor, tf.float64) / div)  #.transpose(0, 2, 3, 1)
+        return res
+
+
+    @staticmethod
+    def local_response_norm3(input, size=3, alpha=0.5, beta=1.75, k=1):
+        """Applies intra channel LRN
+
+        Est l'exact copié collé de ce code colab par moi
+        https://colab.research.google.com/drive/1SiI7jeOu96eewaQCbvS2gyT8LRtSvlQK?usp=sharing
+        qui marche beaucoup mieux
+
+        Applies local response normalization over an input signal composed of
+        several input planes, where channels occupy the second dimension.
+        Applies normalization across channels.
+        See :class:`~torch.nn.LocalResponseNorm` for details.
+        >>> dataset = get_quick_dataset(inRGB=True)
+        >>> a = plt.imshow(dataset[3, :, :, :])
+        >>> plt.show()
+        >>> res = Normalization.preprocess_images(dataset, 'LRN')
+        >>> a = plt.imshow(res[3, :, :, :])
+        >>> plt.show()
+        """
+
+        dim = len(input.shape)
+        input = Normalization.pixelsScalling(input.astype(np.float64))
+        input_tensor = tf.cast(tf.convert_to_tensor(input), dtype=tf.float64)
+        if dim < 3:
+            raise ValueError('Expected 3D or higher dimensionality \
+                             input (got {} dimensions)'.format(dim))
+        div = tf.expand_dims((input_tensor * input_tensor), -1)
+
+        sizes = tf.shape(input_tensor)
+        div = tf.cast(div, tf.float32)
+        # div = tf.reshape(div, (sizes[0], 1, sizes[1], sizes[2], -1))
+        # div = tf.reshape(div)
+        # paddings = [[size // 2, (size - 1) // 2], [0, 0], [0, 0]]
+        # div = tf.pad(div, paddings)
+        div = tf.squeeze(tf.nn.avg_pool3d(div, (1, size, size), strides=(1, 1, 1), padding="SAME"), -1)
+        div = tf.cast(div, tf.float64)
+        # div = tf.reshape(div, sizes)
+        div = (div * alpha + k) ** beta
+        res = (input_tensor / div)  #.transpose(0, 2, 3, 1)
+        return res
+
+
+    @staticmethod
+    def local_response_norm4(dataset_X, size=3, alpha=0.5, beta=1.75, k=1):
+        """Applies intra channel LRN
+
+        Est l'exact copié collé de ce code colab par moi
+        https://colab.research.google.com/drive/1SiI7jeOu96eewaQCbvS2gyT8LRtSvlQK?usp=sharing
+        qui marche beaucoup mieux
+
+        Applies local response normalization over an input signal composed of
+        several input planes, where channels occupy the second dimension.
+        Applies normalization across channels.
+        See :class:`~torch.nn.LocalResponseNorm` for details.
+        >>> dataset = get_quick_dataset(inRGB=True)
+        >>> a = plt.imshow(dataset[3, :, :, :])
+        >>> plt.show()
+        >>> res = Normalization.preprocess_images(dataset, 'LRN')
+        >>> a = plt.imshow(res[3, :, :, :])
+        >>> plt.show()
+        """
+
+        dim = len(dataset_X.shape)
+        dataset_X = Normalization.pixelsScalling(dataset_X.astype(np.float64))
+        step = math.ceil(dataset_X.shape[0]/10)
+        my_range = np.arange(0, dataset_X.shape[0], step)
+        for i_window in my_range:
+            dataset_X[i_window:(i_window+step), :, :, :]
+            input_tensor = tf.cast(tf.convert_to_tensor(input), dtype=tf.float64)
+            if dim < 3:
+                raise ValueError('Expected 3D or higher dimensionality \
+                                 input (got {} dimensions)'.format(dim))
+            div = tf.expand_dims((input_tensor * input_tensor), -1)
+
+            sizes = tf.shape(input_tensor)
+            div = tf.cast(div, tf.float32)
+            # div = tf.reshape(div, (sizes[0], 1, sizes[1], sizes[2], -1))
+            # div = tf.reshape(div)
+            # paddings = [[size // 2, (size - 1) // 2], [0, 0], [0, 0]]
+            # div = tf.pad(div, paddings)
+            div = tf.squeeze(tf.nn.avg_pool3d(div, (1, size, size), strides=(1, 1, 1), padding="SAME"), -1)
+            div = tf.cast(div, tf.float64)
+            # div = tf.reshape(div, sizes)
+            div = (div * alpha + k) ** beta
+            res = (input_tensor / div)  #.transpose(0, 2, 3, 1)
         return res
