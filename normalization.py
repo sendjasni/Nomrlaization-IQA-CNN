@@ -569,8 +569,8 @@ class Normalization:
         step = math.ceil(dataset_X.shape[0]/10)
         my_range = np.arange(0, dataset_X.shape[0], step)
         for i_window in my_range:
-            dataset_X[i_window:(i_window+step), :, :, :]
-            input_tensor = tf.cast(tf.convert_to_tensor(input), dtype=tf.float64)
+            dataset_slice = dataset_X[i_window:(i_window+step), :, :, :]
+            input_tensor = tf.cast(tf.convert_to_tensor(dataset_slice), dtype=tf.float64)
             if dim < 3:
                 raise ValueError('Expected 3D or higher dimensionality \
                                  input (got {} dimensions)'.format(dim))
@@ -586,5 +586,5 @@ class Normalization:
             div = tf.cast(div, tf.float64)
             # div = tf.reshape(div, sizes)
             div = (div * alpha + k) ** beta
-            res = (input_tensor / div)  #.transpose(0, 2, 3, 1)
-        return res
+            dataset_X[i_window:(i_window+step), :, :, :] = (input_tensor / div)  #.transpose(0, 2, 3, 1)
+        return dataset_X

@@ -2,6 +2,7 @@
 from timeit import default_timer as timer
 import random as python_random
 import math
+import os
 
 # External librairies
 from PIL import Image
@@ -85,6 +86,8 @@ def get_quick_dataset(inRGB=False) -> np.ndarray:
 def apply_seed(seed: int):
     """To fix randomness, use this function with a number
     This will fix a well-defined initial state for each librairies"""
+    os.environ['PYTHONHASHSEED'] = '0'
+    os.environ['TF_DETERMINISTIC_OPS'] = '1'
     np.random.seed(seed)
     python_random.seed(seed)
     tf.random.set_seed(seed)

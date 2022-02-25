@@ -9,15 +9,13 @@ from normalization import Normalization
 from numbers import Number
 
 
-def run(env, cst=None):
+def run(env, cst):
     """This codes comes after patching. The data is already patched and saved in .npy files
     if this is run from local computer, don't precise cst argument
     """
 
     # Parameters #
-    if env == "LOCAL":
-        import constants as cst
-    elif not cst:
+    if not cst:
         raise ImportError
 
     if cst.FIX_RANDOM:
@@ -58,8 +56,12 @@ def run(env, cst=None):
 
     if cst.PREPROCESS_ON_THE_FLY and not cst.SEPARATE_NORM_TEST_NORM_TRAIN:
         print(f"Loading database... ({path_dataset}.npy)")
-        imgs = np.load(f"{path_dataset}.npy")
-        labels = np.load(f"{path_dataset}_labels.npy")
+        if cst.CONVERT_FLOAT32:
+          imgs = np.load(f"{path_dataset}.npy").astype(np.float32)
+          labels = np.load(f"{path_dataset}_labels.npy").astype(np.float32)
+        else:
+          imgs = np.load(f"{path_dataset}.npy")
+          labels = np.load(f"{path_dataset}_labels.npy")
         labels = np.squeeze(labels)
         print("Done.")
         if cst.USE_GRAY:
@@ -86,8 +88,12 @@ def run(env, cst=None):
 
         if cst.PREPROCESS_ON_THE_FLY and cst.SEPARATE_NORM_TEST_NORM_TRAIN:
             print(f"Loading database... ({path_dataset}.npy)")
-            imgs = np.load(f"{path_dataset}.npy")
-            labels = np.load(f"{path_dataset}_labels.npy")
+            if cst.CONVERT_FLOAT32:
+              imgs = np.load(f"{path_dataset}.npy").astype(np.float32)
+              labels = np.load(f"{path_dataset}_labels.npy").astype(np.float32)
+            else:
+              imgs = np.load(f"{path_dataset}.npy")
+              labels = np.load(f"{path_dataset}_labels.npy")
             labels = np.squeeze(labels)
             # pd.DataFrame(labels).to_csv('verif_dmos.csv', index=False, header=['dmos'])
             print("Done.")
